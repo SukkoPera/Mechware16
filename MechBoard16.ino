@@ -37,18 +37,18 @@ const byte MATRIX_COLS = 8;
 
 #include "CircularBuffer.h"
 struct KeyMatrixSample {
-	uint8_t rows;
-	uint8_t cols;
+	byte rows;			// If this is made a uint8_t we save 6 bytes, how come?!?
+	byte cols;
 };
 
-/* volatile */ CircularBuffer<KeyMatrixSample, uint8_t, 32> matrixSamples;
+/* volatile */ CircularBuffer<KeyMatrixSample, byte, 32> matrixSamples;
 
 #include "LedControl.h"
-LedControl lc(PIN_MAX7221_DATA, PIN_MAX7221_CLK, PIN_MAX7221_SEL, 1 /* Number of MAX72xx chips */);
+LedControl lc (PIN_MAX7221_DATA, PIN_MAX7221_CLK, PIN_MAX7221_SEL, 1 /* Number of MAX72xx chips */);
 
 unsigned long DELAY_TIME = 35;
 
-enum class Key: uint8_t {
+enum class Key: byte {
 	// Numbers
 	_0,
 	_1,
@@ -110,7 +110,7 @@ enum class Key: uint8_t {
 	COMMA,
 	CTRL,
 	DEL,
-	ENTER,
+	RETURN,
 	EQUAL,
 	ESC,
 	MINUS,
@@ -126,7 +126,7 @@ enum class Key: uint8_t {
 
 const byte N_KEYS = static_cast<byte> (Key::SPACE) + 1;
 
-enum class Mode: uint8_t {
+enum class Mode: byte {
 	ALWAYS_OFF,
 	ALWAYS_ON,
 	PRESSED_ON,
@@ -140,11 +140,6 @@ Mode mode = Mode::PRESSED_OFF;
  ******************************************************************************/
 
 #ifdef ENABLE_SERIAL_DEBUG
-	//~ #include <avr/pgmspace.h>
-	//~ typedef const __FlashStringHelper * FlashStr;
-	//~ typedef const byte* PGM_BYTES_P;
-	//~ #define PSTR_TO_F(s) reinterpret_cast<const __FlashStringHelper *> (s)
-
 	#define dstart(spd) Serial.begin (spd)
 	#define debug(...) Serial.print (__VA_ARGS__)
 	#define debugln(...) Serial.println (__VA_ARGS__)
@@ -161,14 +156,14 @@ Mode mode = Mode::PRESSED_OFF;
 constexpr Key splash_order[N_KEYS + 1] = {
 	Key::ESC, Key::_1, Key::_2, Key::_3, Key::_4, Key::_5, Key::_6, Key::_7, Key::_8, Key::_9, Key::_0, Key::LEFT, Key::RIGHT, Key::UP, Key::DOWN, Key::DEL,
 	Key::CTRL, Key::Q, Key::W, Key::E, Key::R, Key::T, Key::Y, Key::U, Key::I, Key::O, Key::P, Key::AT, Key::PLUS, Key::MINUS, Key::CLEAR,
-	Key::RUNSTOP, /* Shift Lock */ Key::A, Key::S, Key::D, Key::F, Key::G, Key::H, Key::J, Key::K, Key::L, Key::COLON, Key::SEMICOLON, Key::ASTERISK, Key::ENTER,
+	Key::RUNSTOP, /* Shift Lock */ Key::A, Key::S, Key::D, Key::F, Key::G, Key::H, Key::J, Key::K, Key::L, Key::COLON, Key::SEMICOLON, Key::ASTERISK, Key::RETURN,
 	Key::CMD, Key::SHIFT, Key::Z, Key::X, Key::C, Key::V, Key::B, Key::N, Key::M, Key::COMMA, Key::PERIOD, Key::SLASH, Key::SHIFT, Key::POUND, Key::EQUAL,
 	Key::SPACE,
 	Key::HELP, Key::F3, Key::F2, Key::F1    // Reverse order just to be cool ;)
 };
 
 constexpr Key keymap[MATRIX_ROWS][MATRIX_COLS] = {
-	{Key::DEL,  Key::ENTER,    Key::POUND,     Key::HELP,  Key::F1,     Key::F2,    Key::F3,    Key::AT},
+	{Key::DEL,  Key::RETURN,   Key::POUND,     Key::HELP,  Key::F1,     Key::F2,    Key::F3,    Key::AT},
 	{Key::_3,   Key::W,        Key::A,         Key::_4,    Key::Z,      Key::S,     Key::E,     Key::SHIFT},
 	{Key::_5,   Key::R,        Key::D,         Key::_6,    Key::C,      Key::F,     Key::T,     Key::X},
 	{Key::_7,   Key::Y,        Key::G,         Key::_8,    Key::B,      Key::H,     Key::U,     Key::V},
@@ -178,6 +173,7 @@ constexpr Key keymap[MATRIX_ROWS][MATRIX_COLS] = {
 	{Key::_1,   Key::CLEAR,    Key::CTRL,      Key::_2,    Key::SPACE,  Key::CMD,   Key::Q,     Key::RUNSTOP}
 };
 
+// Only useful for debugging
 const char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
 	{"DEL", "RET", "£",   "HLP", "F1",  "F2", "F3", "@"},
 	{"3",   "W",   "A",   "4",   "Z",   "S",  "E",  "SHF"},
@@ -202,7 +198,7 @@ LedCoordinates ledCoordinates[N_KEYS];
 
 // Populates the ledCoordinates array
 boolean buildLedCoordinates () {
-	bool found = false;
+	bool found;
 	
 	for (byte i = 0; i < N_KEYS; ++i) {
 		Key k = static_cast<Key> (i);
@@ -366,6 +362,11 @@ void loop () {
 	while (matrixSamples.available ()) {
 		KeyMatrixSample sample = matrixSamples.get ();
 
+		/* When scanning the keyboard, the C16/+4 KERNAL first does a quick test to check if any key is pressed at all:
+		 * it brings all the rows down and checks whether all cols are up or not. If at least one column is down, it
+		 * goes on to check every individual row, as at least one key must be pressed and there's no other way to find
+		 * out exactly which one, otherwise it takes no further action and just terminates the scan there.
+		 */
 		if (sample.rows == 0x00 && sample.cols == 0xFF) {
 			// All keys released
 			for (byte r = 0; r < MATRIX_ROWS; ++r) {
