@@ -18,7 +18,7 @@
  ******************************************************************************/
 
 // Send debug messages to serial port
-//~ #define ENABLE_SERIAL_DEBUG
+#define ENABLE_SERIAL_DEBUG
 
 const byte PIN_LED_R = A5;
 const byte PIN_LED_G = A4;
@@ -121,10 +121,13 @@ enum class Key: byte {
 	SEMICOLON,
 	SHIFT,
 	SLASH,
-	SPACE
+	SPACE,
+
+	// Fake key placeholder
+	NONE = 0xFF
 };
 
-const byte N_KEYS = static_cast<byte> (Key::SPACE) + 1;
+const byte N_PHYSICAL_KEYS = static_cast<byte> (Key::SPACE) + 1;
 
 enum class Mode: byte {
 	ALWAYS_OFF,
@@ -135,9 +138,17 @@ enum class Mode: byte {
 
 Mode mode = Mode::PRESSED_OFF;
 
+byte animation = 0;
+
 /*******************************************************************************
  * END OF SETTINGS
  ******************************************************************************/
+
+#include <EEPROM.h>
+constexpr word EEP_ANIMATION = 0x100;
+constexpr word EEP_MODE = 0x101;
+
+#include <avr/pgmspace.h>
 
 #ifdef ENABLE_SERIAL_DEBUG
 	#define dstart(spd) Serial.begin (spd)
@@ -149,11 +160,69 @@ Mode mode = Mode::PRESSED_OFF;
 	#define debugln(...)
 #endif
 
+struct MatrixCoordinates {
+	byte row;
+	byte col;
+};
+
+/* Maps a key to the (row, col) tuple that controls its led.
+ * Built by buildLedCoordinates().
+ */
+MatrixCoordinates ledCoordinates[N_PHYSICAL_KEYS];
+
+/* Maps a key to the (row, col) tuple describing its position in the keyboard matrix, useful for quick lookups.
+ * Built by buildKeyCoordinates().
+ */
+MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
+
+// Current state of the keyboard matrix, true if a key is pressed
+boolean keyboardMatrix[MATRIX_ROWS][MATRIX_COLS] = {false};
+
+//! Number of physical rows of keys
+constexpr byte N_PHYSICAL_ROWS = 5;
+
+constexpr byte splash0nCols = 18;
+
+// Lists of keys per each row, somehow lined up in "diagonal columns"
+const Key splash0row4[splash0nCols] PROGMEM = {Key::NONE,    Key::ESC,   Key::_1,   Key::_2,    Key::_3,   Key::_4,   Key::_5,    Key::_6,   Key::_7,   Key::_8,    Key::_9,     Key::_0,    Key::LEFT,      Key::RIGHT,    Key::UP,     Key::DOWN,   Key::DEL,   Key::F1};
+const Key splash0row3[splash0nCols] PROGMEM = {Key::NONE,    Key::CTRL,  Key::Q,    Key::W,     Key::E,    Key::R,    Key::T,     Key::Y,    Key::U,    Key::I,     Key::O,      Key::P,     Key::AT,        Key::PLUS,     Key::MINUS,  Key::NONE,   Key::CLEAR, Key::F2};
+const Key splash0row2[splash0nCols] PROGMEM = {Key::RUNSTOP, Key::NONE,  Key::A,    Key::S,     Key::D,    Key::F,    Key::G,     Key::H,    Key::J,    Key::K,     Key::L,      Key::COLON, Key::SEMICOLON, Key::ASTERISK, Key::NONE,   Key::RETURN, Key::NONE,  Key::F3};
+const Key splash0row1[splash0nCols] PROGMEM = {Key::CMD,     Key::SHIFT, Key::Z,    Key::X,     Key::C,    Key::V,    Key::B,     Key::N,    Key::M,    Key::COMMA, Key::PERIOD, Key::SLASH, Key::NONE,      Key::SHIFT,    Key::POUND,  Key::EQUAL,  Key::NONE,  Key::HELP};
+const Key splash0row0[splash0nCols] PROGMEM = {Key::NONE,    Key::NONE,  Key::NONE, Key::SPACE, Key::NONE, Key::NONE, Key::SPACE, Key::NONE, Key::NONE, Key::SPACE, Key::NONE,   Key::NONE,  Key::NONE,      Key::NONE,     Key::NONE,   Key::NONE,   Key::NONE,  Key::NONE};
+
+constexpr Key const * splash0rows[N_PHYSICAL_ROWS] PROGMEM = {splash0row4, splash0row3, splash0row2, splash0row1, splash0row0};
+
+void splash0 () {
+	for (byte i = 0; i < splash0nCols; ++i) {
+		// Turn on a column...
+		for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
+			const byte* krow = pgm_read_byte (&splash0rows[j]);
+			const byte k = pgm_read_byte (&(krow[i]));
+			if (static_cast<Key> (k) != Key::NONE) {
+				const MatrixCoordinates& pos = ledCoordinates[k];
+				lc.setLed (0, pos.row, pos.col, true);
+			}
+		}
+
+		// ... wait a bit...
+		delay (60);
+
+		// ... and turn it off
+		for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
+			const byte* krow = pgm_read_byte (&splash0rows[j]);
+			const byte k = pgm_read_byte (&(krow[i]));
+			if (static_cast<Key> (k) != Key::NONE) {
+				const MatrixCoordinates& pos = ledCoordinates[k];
+				lc.setLed (0, pos.row, pos.col, false);
+			}
+		}
+	}
+}
 
 // TODO: Move all the following tables to flash memory
 
 // Order in which they appear on the keyboard (+1 for 2 Shifts)
-constexpr Key splash_order[N_KEYS + 1] = {
+constexpr Key splash_order[N_PHYSICAL_KEYS + 1] = {
 	Key::ESC, Key::_1, Key::_2, Key::_3, Key::_4, Key::_5, Key::_6, Key::_7, Key::_8, Key::_9, Key::_0, Key::LEFT, Key::RIGHT, Key::UP, Key::DOWN, Key::DEL,
 	Key::CTRL, Key::Q, Key::W, Key::E, Key::R, Key::T, Key::Y, Key::U, Key::I, Key::O, Key::P, Key::AT, Key::PLUS, Key::MINUS, Key::CLEAR,
 	Key::RUNSTOP, /* Shift Lock */ Key::A, Key::S, Key::D, Key::F, Key::G, Key::H, Key::J, Key::K, Key::L, Key::COLON, Key::SEMICOLON, Key::ASTERISK, Key::RETURN,
@@ -161,6 +230,15 @@ constexpr Key splash_order[N_KEYS + 1] = {
 	Key::SPACE,
 	Key::HELP, Key::F3, Key::F2, Key::F1    // Reverse order just to be cool ;)
 };
+	
+void splash1 () {
+	for (byte i = 0; i < N_PHYSICAL_KEYS + 1; ++i) {
+		const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (splash_order[i])];
+		lc.setLed (0, pos.row, pos.col, true);
+		delay (DELAY_TIME);
+		lc.setLed (0, pos.row, pos.col, false);
+	}
+}
 
 constexpr Key keymap[MATRIX_ROWS][MATRIX_COLS] = {
 	{Key::DEL,  Key::RETURN,   Key::POUND,     Key::HELP,  Key::F1,     Key::F2,    Key::F3,    Key::AT},
@@ -174,7 +252,7 @@ constexpr Key keymap[MATRIX_ROWS][MATRIX_COLS] = {
 };
 
 // Only useful for debugging
-const char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
+constexpr char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
 	{"DEL", "RET", "£",   "HLP", "F1",  "F2", "F3", "@"},
 	{"3",   "W",   "A",   "4",   "Z",   "S",  "E",  "SHF"},
 	{"5",   "R",   "D",   "6",   "C",   "F",  "T",  "X"},
@@ -185,22 +263,11 @@ const char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
 	{"1",   "CLR", "CTL", "2",   "SPC", "C=", "Q",  "RUN"}
 };
 
-// Current state of the keyboard matris, true if a key is pressed
-boolean matrix[MATRIX_ROWS][MATRIX_COLS] = {false};
-
-struct LedCoordinates {
-	byte row;
-	byte col;
-};
-
-// Maps a key to the (row, col) tuple that controls its led.
-LedCoordinates ledCoordinates[N_KEYS];
-
 // Populates the ledCoordinates array
 boolean buildLedCoordinates () {
 	bool found;
 	
-	for (byte i = 0; i < N_KEYS; ++i) {
+	for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {
 		Key k = static_cast<Key> (i);
 
 		found = false;
@@ -213,6 +280,32 @@ boolean buildLedCoordinates () {
 					 */
 					ledCoordinates[i].row = col;
 					ledCoordinates[i].col = (row + 1) % 8;
+					found = true;
+				}
+			}
+		}
+
+		if (!found) {
+			break;
+		}
+	}
+
+	return found;
+}
+
+// Populates the keyCoordinates array
+boolean buildKeyCoordinates () {
+	bool found;
+	
+	for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {
+		Key k = static_cast<Key> (i);
+
+		found = false;
+		for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
+			for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
+				if (keymap[row][col] == k) {
+					keyCoordinates[i].row = row;
+					keyCoordinates[i].col = col;
 					found = true;
 				}
 			}
@@ -261,13 +354,13 @@ void onKeyPressed (const byte row, const byte col) {
 	switch (mode) {
 		case Mode::PRESSED_ON: {
 			const Key k = keymap[row][col];
-			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
 			lc.setLed (0, pos.row, pos.col, true);
 			break;
 		}
 		case Mode::PRESSED_OFF: {
 			const Key k = keymap[row][col];
-			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
 			lc.setLed (0, pos.row, pos.col, false);
 			break;
 		}
@@ -283,19 +376,91 @@ void onKeyReleased (const byte row, const byte col) {
 	switch (mode) {
 		case Mode::PRESSED_ON: {
 			const Key k = keymap[row][col];
-			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
 			lc.setLed (0, pos.row, pos.col, false);
 			break;
 		}
 		case Mode::PRESSED_OFF: {
 			const Key k = keymap[row][col];
-			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
 			lc.setLed (0, pos.row, pos.col, true);
 			break;
 		}
 		case Mode::ALWAYS_ON:
 		case Mode::ALWAYS_OFF:
 			// Nothing to do
+			break;
+	}
+}
+
+void updateLighting () {
+	// Update the LED pattern according to the chosen mode
+	switch (mode) {
+		case Mode::ALWAYS_ON:
+			// Turn all leds on
+			for (byte i = 0; i < MATRIX_COLS; ++i) {
+				lc.setRow (0, i, 0xFF);
+			}
+			break;
+		case Mode::PRESSED_OFF:
+			for (byte r = 0; r < MATRIX_ROWS; ++r) {
+				for (byte c = 0; c < MATRIX_COLS; ++c) {
+					const Key k = keymap[r][c];
+					const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+					lc.setLed (0, pos.row, pos.col, !keyboardMatrix[r][c]);
+				}
+			}
+			break;
+		case Mode::ALWAYS_OFF:
+			// Turn all leds off
+			for (byte i = 0; i < MATRIX_COLS; ++i) {
+				lc.setRow (0, i, 0x00);
+			}
+			break;
+		case Mode::PRESSED_ON:
+			for (byte r = 0; r < MATRIX_ROWS; ++r) {
+				for (byte c = 0; c < MATRIX_COLS; ++c) {
+					const Key k = keymap[r][c];
+					const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+					lc.setLed (0, pos.row, pos.col, keyboardMatrix[r][c]);
+				}
+			}
+			break;
+	}
+}
+
+void onSetMode (const Mode newMode) {
+	if (newMode != mode) {
+		debug (F("Setting mode "));
+		debugln (static_cast<byte> (newMode));
+		
+		mode = newMode;
+		EEPROM.write (EEP_MODE, static_cast<byte> (mode));
+		updateLighting ();
+	}
+}
+
+void onSetAnimation (const int newAnimation) {
+	if (newAnimation != animation) {
+		debug (F("Setting animation "));
+		debugln (newAnimation);
+		
+		animation = newAnimation;
+		EEPROM.write (EEP_ANIMATION, static_cast<byte> (animation));
+	}
+}
+
+void doAnimation () {
+	debug (F("Playing intro animation "));
+	debugln (animation);
+		
+	switch (animation) {
+		case 0:
+		default:
+			splash0 ();
+			break;
+		case 1:
+			splash1 ();
 			break;
 	}
 }
@@ -321,9 +486,9 @@ void setup () {
 	pinMode (PIN_LED_G, OUTPUT);
 	pinMode (PIN_LED_B, OUTPUT);
 
-	// Build the LED coordinates array
-	if (!buildLedCoordinates()) {
-		debugln (F("Unable to build the LED coordinates array, this indicatess a mistake in the code"));
+	// Build the required coordinates array
+	if (!buildLedCoordinates () || !buildKeyCoordinates ()) {
+		debugln (F("Unable to build the LED coordinates array, this indicates a mistake in the code"));
 
 		// Hang with fast blinking
 		while (true) {
@@ -335,27 +500,29 @@ void setup () {
 	}
 
 	// Do the power-up animation
-	for (byte i = 0; i < N_KEYS + 1; ++i) {
-		const LedCoordinates& pos = ledCoordinates[static_cast<int> (splash_order[i])];
-		lc.setLed (0, pos.row, pos.col, true);
-		delay (DELAY_TIME);
-		lc.setLed (0, pos.row, pos.col, false);
+	byte b = EEPROM.read (EEP_ANIMATION);
+	if (b < 2) {
+		animation = b;
+	} else {
+		// Default animation
+		animation = 0;
 	}
+	doAnimation ();
 
-	// Prepare the initial LED pattern according to the chosen mode
-	switch (mode) {
-		case Mode::ALWAYS_ON:
-		case Mode::PRESSED_OFF:
-			// Turn all leds on
-			for (byte i = 0; i < MATRIX_COLS; ++i) {
-				lc.setRow (0, i, 0xFF);
-			}
-			break;
-		case Mode::ALWAYS_OFF:
-		case Mode::PRESSED_ON:
-			// Nothing to do, leds are already all off at this point
-			break;
+	// Prepare the initial LED pattern according to the saved mode
+	b = EEPROM.read (EEP_MODE);
+	if (b <= static_cast<byte> (Mode::PRESSED_OFF)) {
+		mode = static_cast<Mode> (b);
+	} else {
+		// Default mode
+		mode = Mode::PRESSED_OFF;
 	}
+	updateLighting ();
+}
+
+boolean isPressed (const Key k) {
+	const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];	// FIXME: Check bounds
+	return keyboardMatrix[pos.row][pos.col];
 }
 
 void loop () {
@@ -371,7 +538,7 @@ void loop () {
 			// All keys released
 			for (byte r = 0; r < MATRIX_ROWS; ++r) {
 				for (byte c = 0; c < MATRIX_COLS; ++c) {
-					if (matrix[r][c]) {
+					if (keyboardMatrix[r][c]) {
 						debug (F("Released "));
 						debug (r);
 						debug (F(","));
@@ -381,7 +548,7 @@ void loop () {
 
 						onKeyReleased (r, c);
 
-						matrix[r][c] = false;
+						keyboardMatrix[r][c] = false;
 					}
 				}
 			}
@@ -391,7 +558,7 @@ void loop () {
 				if ((sample.rows & (1 << r)) == 0) {
 					for (byte c = 0; c < MATRIX_COLS; ++c) {
 						boolean pressed = (sample.cols & (1 << c)) == 0;
-						if (pressed && !matrix[r][c]) {
+						if (pressed && !keyboardMatrix[r][c]) {
 							debug (F("Pressed "));
 							debug (r);
 							debug (',');
@@ -400,7 +567,7 @@ void loop () {
 							debugln (KEY_NAMES[r][c]);
 
 							onKeyPressed (r, c);
-						} else if (!pressed && matrix[r][c]) {
+						} else if (!pressed && keyboardMatrix[r][c]) {
 							debug (F("Released "));
 							debug (r);
 							debug (F(","));
@@ -410,12 +577,31 @@ void loop () {
 
 							onKeyReleased (r, c);
 						}
-						matrix[r][c] = pressed;
+						keyboardMatrix[r][c] = pressed;
 					}
 
 					break;		// There is necessarily only one row at 0
 				}
 			}
+		}
+	}
+
+	// Check combos
+	if (isPressed (Key::CMD) && isPressed (Key::CTRL)) {
+		if (isPressed (Key::F1)) {
+			onSetMode (Mode::ALWAYS_OFF);
+		} else if (isPressed (Key::F2)) {
+			onSetMode (Mode::ALWAYS_ON);
+		} else if (isPressed (Key::F3)) {
+			onSetMode (Mode::PRESSED_ON);
+		} else if (isPressed (Key::HELP)) {
+			onSetMode (Mode::PRESSED_OFF);
+		} else if (isPressed (Key::_1)) {
+			onSetAnimation (0);
+		} else if (isPressed (Key::_2)) {
+			onSetAnimation (1);
+		} else if (isPressed (Key::RUNSTOP)) {
+			// TODO: RESET
 		}
 	}
 	
