@@ -262,13 +262,13 @@ void onKeyPressed (const byte row, const byte col) {
 		case Mode::PRESSED_ON: {
 			const Key k = keymap[row][col];
 			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
-			lc.setLed(0, pos.row, pos.col, true);
+			lc.setLed (0, pos.row, pos.col, true);
 			break;
 		}
 		case Mode::PRESSED_OFF: {
 			const Key k = keymap[row][col];
 			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
-			lc.setLed(0, pos.row, pos.col, false);
+			lc.setLed (0, pos.row, pos.col, false);
 			break;
 		}
 		case Mode::ALWAYS_ON:
@@ -284,13 +284,13 @@ void onKeyReleased (const byte row, const byte col) {
 		case Mode::PRESSED_ON: {
 			const Key k = keymap[row][col];
 			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
-			lc.setLed(0, pos.row, pos.col, false);
+			lc.setLed (0, pos.row, pos.col, false);
 			break;
 		}
 		case Mode::PRESSED_OFF: {
 			const Key k = keymap[row][col];
 			const LedCoordinates& pos = ledCoordinates[static_cast<int> (k)];
-			lc.setLed(0, pos.row, pos.col, true);
+			lc.setLed (0, pos.row, pos.col, true);
 			break;
 		}
 		case Mode::ALWAYS_ON:
@@ -372,11 +372,11 @@ void loop () {
 			for (byte r = 0; r < MATRIX_ROWS; ++r) {
 				for (byte c = 0; c < MATRIX_COLS; ++c) {
 					if (matrix[r][c]) {
-						debug ("Released ");
+						debug (F("Released "));
 						debug (r);
-						debug (',');
+						debug (F(","));
 						debug (c);
-						debug (": ");
+						debug (F(": "));
 						debugln (KEY_NAMES[r][c]);
 
 						onKeyReleased (r, c);
@@ -392,20 +392,20 @@ void loop () {
 					for (byte c = 0; c < MATRIX_COLS; ++c) {
 						boolean pressed = (sample.cols & (1 << c)) == 0;
 						if (pressed && !matrix[r][c]) {
-							debug ("Pressed ");
+							debug (F("Pressed "));
 							debug (r);
 							debug (',');
 							debug (c);
-							debug (": ");
+							debug (F(": "));
 							debugln (KEY_NAMES[r][c]);
 
 							onKeyPressed (r, c);
 						} else if (!pressed && matrix[r][c]) {
-							debug ("Released ");
+							debug (F("Released "));
 							debug (r);
-							debug (',');
+							debug (F(","));
 							debug (c);
-							debug (": ");
+							debug (F(": "));
 							debugln (KEY_NAMES[r][c]);
 
 							onKeyReleased (r, c);
