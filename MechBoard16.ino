@@ -18,7 +18,7 @@
  ******************************************************************************/
 
 // Send debug messages to serial port
-#define ENABLE_SERIAL_DEBUG
+//~ #define ENABLE_SERIAL_DEBUG
 
 const byte PIN_LED_R = A5;
 const byte PIN_LED_G = A4;
@@ -219,10 +219,8 @@ void splash0 () {
 	}
 }
 
-// TODO: Move all the following tables to flash memory
-
-// Order in which they appear on the keyboard (+1 for 2 Shifts)
-constexpr Key splash_order[N_PHYSICAL_KEYS + 1] = {
+// Order in which keys appear on the keyboard (+1 for 2 Shifts)
+constexpr Key splash_order[N_PHYSICAL_KEYS + 1] PROGMEM = {
 	Key::ESC, Key::_1, Key::_2, Key::_3, Key::_4, Key::_5, Key::_6, Key::_7, Key::_8, Key::_9, Key::_0, Key::LEFT, Key::RIGHT, Key::UP, Key::DOWN, Key::DEL,
 	Key::CTRL, Key::Q, Key::W, Key::E, Key::R, Key::T, Key::Y, Key::U, Key::I, Key::O, Key::P, Key::AT, Key::PLUS, Key::MINUS, Key::CLEAR,
 	Key::RUNSTOP, /* Shift Lock */ Key::A, Key::S, Key::D, Key::F, Key::G, Key::H, Key::J, Key::K, Key::L, Key::COLON, Key::SEMICOLON, Key::ASTERISK, Key::RETURN,
@@ -233,9 +231,14 @@ constexpr Key splash_order[N_PHYSICAL_KEYS + 1] = {
 	
 void splash1 () {
 	for (byte i = 0; i < N_PHYSICAL_KEYS + 1; ++i) {
-		const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (splash_order[i])];
-		lc.setLed (0, pos.row, pos.col, true);
-		delay (DELAY_TIME);
+		for (byte j = 0; j < 3; ++j) {
+			const byte k = pgm_read_byte (&(splash_order[i + j]));
+			const MatrixCoordinates& pos = ledCoordinates[k];
+			lc.setLed (0, pos.row, pos.col, true);
+		}
+		delay (40);
+		const byte k = pgm_read_byte (&(splash_order[i]));
+		const MatrixCoordinates& pos = ledCoordinates[k];
 		lc.setLed (0, pos.row, pos.col, false);
 	}
 }
