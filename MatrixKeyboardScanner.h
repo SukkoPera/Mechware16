@@ -175,7 +175,12 @@ public:
 #endif
 						if (key != 0) {
 							if (!kbuf.full ()) {
-								kbuf.append (key);
+								KeyEvent evt {
+									.key = key,
+									.row = row,
+									.col = col
+								};
+								kbuf.append (evt);
 							} else {
 								Log.error (F("Key buffer is full\n"));
 							}
@@ -202,8 +207,6 @@ public:
  *   causes them to be "weak" +5 outputs.
  * - To scan, we set one line as a low output, causing it to "win" over the weak
  *   outputs.
- * - Optionally, the resulting matrix is "filtered" through the #GhostBuster,
- *   which detects and prevents ghost keypresses.
  * - The resulting matrix is finally fed to a #KeyMapper, which translates it
  *   into the actual keypresses.
  */
@@ -259,24 +262,24 @@ public:
 
 		/* Scan all rows */
 		for (byte row = 0; row < NUMROWS; ++row) {
-			// Set a single line of the output port to ground
+			// Set a single row to ground
 			outPort.setBit (row);
 			
-			// Wait for things to settle and then read column output on B
+			// Wait for things to settle and then read column output
 			delayMicroseconds (30);
 			TYPECOLS data = inPort.read ();
 
-			/* If a change was detected, activate debounce counter */
+			// If a change was detected, activate debounce counter
 			if (matrix[row] != data) {
 				debounce = DEBOUNCE_LENGTH; 
 			}
 
-			/* Store the result */
+			// Store the result
 			matrix[row] = data; 
 		}
 		outPort.clearAllBits ();
 
-		/* Count down, but avoid underflow */
+		// Count down, but avoid underflow
 		if (debounce > 1) {
 			debounce--;
 		} else {

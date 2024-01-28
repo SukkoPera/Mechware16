@@ -39,8 +39,18 @@ const byte KEYBUF_SIZE = 6;
 //! \brief Type used to represent keypresses
 typedef word Key;
 
-//! \brief Type used to report keypresses
-typedef SmallBuffer<Key, KEYBUF_SIZE> KeyBuffer;
+//! \brief Type used to report key events (presses/releases)
+struct KeyEvent {
+	Key key;		// The mapped key (USB scancode)
+	byte row;
+	byte col;
+};
+
+//! \brief Key event buffer
+typedef SmallBuffer<KeyEvent, KEYBUF_SIZE> KeyBuffer;
+
+//! \brief Helper for searching for a specific \a Key in a \a KeyBuffer
+boolean eventKeyCompare (const KeyEvent& evt, const Key& k);
 
 /** \brief Abstract Keyboard Scanner (Parent Class)
  * 
@@ -82,4 +92,20 @@ public:
 	 * \return The scan result
 	 */
 	virtual ScanStatus scan (KeyBuffer& buf) = 0;
+
+	/** \brief Update keyboard leds
+	 * 
+	 * Update the Caps/Num/Scroll lock leds on the actual keyboard. A do-nothing
+	 * implementation is provided.
+	 * 
+	 * \param[in] capsLock True if the Caps Lock led shall be lit
+	 * \param[in] numLock True if the Num Lock led shall be lit
+	 * \param[in] scrollLock True if the Scroll Lock led shall be lit
+	 */
+	virtual void updateLeds (const boolean capsLock, const boolean numLock, const boolean scrollLock) {
+		// Do nothing, just avoid warnings
+		(void) capsLock;
+		(void) numLock;
+		(void) scrollLock;
+	};
 };

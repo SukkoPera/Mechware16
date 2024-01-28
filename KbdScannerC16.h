@@ -98,7 +98,7 @@ public:
 		if (kmode == KBD_POSITIONAL) {
 			ret = KeyMapper<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte>::map (mtx, kbuf);
 		} else {
-			if ((mtx[7] & (1 << 1)) == 0) {
+			if ((mtx[1] & (1 << 7)) == 0) {
 				// Shift is pressed
 				setKeyMap (keymapSymbolicShifted);
 			} else {
@@ -108,41 +108,42 @@ public:
 			ret = KeyMapper<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte>::map (mtx, kbuf);
 
 			// See if we need to remove the SHIFT key from the buffer
-			if (kbuf.size > 1 && kbuf.find (KEY_LEFT_SHIFT) >= 0) {
+			if (kbuf.size > 1 && kbuf.find (static_cast<Key> (KEY_LEFT_SHIFT), eventKeyCompare) >= 0) {
 				boolean remove = false;
 				for (byte i = 0; i < kbuf.size && !remove; ++i) {
-					switch (kbuf[i]) {
-					case KEY_LEFT_SHIFT:
-					case KEY_LEFT_CTRL:
-					case KEY_LEFT_ALT:
-					case KEY_UP:
-					case KEY_DOWN:
-					case KEY_LEFT:
-					case KEY_RIGHT:
-					case KEY_HOME:
-					case KEY_TAB:
-					case KEY_ESC:
-						// These keys can be pressed with SHIFT freely
-						break;
-					case KEY_F1 ... KEY_F8:
-						/* The function keys change their meaning with shift, so
-						 * we'd better remove it
-						 */
-						remove = true;
-						break;
-					default:
-						/* Some keys require shift to be (de)synthesized, so
-						 * let's pretend it's not pressed
-						 */
-						if (!UsbKeyboard::keyNeedsShift (kbuf[i])) {
+					switch (kbuf[i].key) {
+						case KEY_LEFT_SHIFT:
+						case KEY_LEFT_CTRL:
+						case KEY_LEFT_ALT:
+						case KEY_UP:
+						case KEY_DOWN:
+						case KEY_LEFT:
+						case KEY_RIGHT:
+						case KEY_HOME:
+						case KEY_TAB:
+						case KEY_ESC:
+							// These keys can be pressed with SHIFT freely
+							break;
+						case KEY_F1 ... KEY_F8:
+							/* The function keys change their meaning with shift, so
+							 * we'd better remove it
+							 */
 							remove = true;
-						}
-						break;
+							break;
+						default:
+							/* Some keys require shift to be (de)synthesized, so
+							 * let's pretend it's not pressed
+							 */
+							if (!UsbKeyboard::keyNeedsShift (kbuf[i].key)) {
+								remove = true;
+							}
+							break;
 					}
 				}
 
 				if (remove) {
-					kbuf.remove (KEY_LEFT_SHIFT);
+					// FIXME
+					kbuf.remove (static_cast<Key> (KEY_LEFT_SHIFT), eventKeyCompare);
 				}
 			}
 		}
@@ -153,5 +154,10 @@ public:
 
 //! \brief C16/Plus4 keyboard scanner
 class KbdScannerC16: public MatrixKeyboardScanner<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte, DEBOUNCE_FACTOR_C16, KeyMapperC16> {
-public:		
+public:
+
+	virtual void updateLeds (const boolean capsLock, const boolean numLock, const boolean scrollLock) override {
+		// Update caps lock led status
+		//~ fastDigitalWrite (LED_PIN, capsLock || numLock || scrollLock);
+	}
 };

@@ -50,7 +50,21 @@ public:
 		return ret;
 	}
 
-	inline boolean append (const T k) {
+	template<typename O>
+	int8_t find (const O& o, boolean (*cmp) (const T& t, const O& o)) const {
+		int8_t ret = -1;
+	
+		for (byte i = 0; i < size; ++i) {
+			if (cmp (buf[i], o)) {
+				ret = i;
+				break;
+			}
+		}
+	
+		return ret;
+	}
+
+	boolean append (const T k) {
 		boolean spaceAvailable = !full ();
 		if (spaceAvailable) {
 			buf[size++] = k;
@@ -59,8 +73,24 @@ public:
 		return spaceAvailable;
 	}
 
-	inline boolean remove (const T k) {
+	boolean remove (const T k) {
 		int8_t pos = find (k);
+		boolean found = pos >= 0;
+	
+		if (found) {
+			for (byte i = pos; i < size - 1; ++i) {
+				buf[i] = buf[i + 1];
+			}
+
+			--size;
+		}
+	
+		return found;
+	}
+
+	template<typename O>
+	boolean remove (const O& o, boolean (*cmp) (const T& t, const O& o)) {
+		int8_t pos = find<O> (o, cmp);
 		boolean found = pos >= 0;
 	
 		if (found) {

@@ -18,7 +18,7 @@ const byte PIN_MAX7221_SEL = A2;
 const byte PIN_MAX7221_DATA = A1;
 const byte PIN_MAX7221_CLK = A0;
 
-// TODO: Make a nother KeyboardScanner with this stuff
+// TODO: Make another KeyboardScanner with this stuff
 /** \brief Number of rows in the C16/Plus4 keyboard matrix
  */
 const byte MATRIX_ROWS = 8;
@@ -639,24 +639,20 @@ void loop () {
 
 	// Once in a while, do the scanning
 	if (millis () - lastKeyboardScanTime >= KEYBOARD_SCAN_INTERVAL_MS) {
-		//~ unsigned long now = micros ();
 		KeyBuffer kBuf;
 		kBuf.begin ();
 		KeyboardScanner::ScanStatus scanStatus = kbdScanner.scan (kBuf);
-	
-		//~ unsigned long dur = micros () - now;
-		//~ debugln (dur);
 		if (scanStatus == KeyboardScanner::SCAN_COMPLETE) {
 			handleKeyboard (kBuf);
 		}
 
-		//~ // Update leds - Note that this needs a patched Keyboard library
-		//~ byte leds = usbKeyboard.getLeds ();
-		//~ kbdScanner.updateLeds (
-			//~ leds & USBLED_CAPS_LOCK,
-			//~ leds & USBLED_NUM_LOCK,
-			//~ leds & USBLED_SCROLL_LOCK
-		//~ );
+		// Update leds - Note that this needs a patched Keyboard library
+		byte leds = usbKeyboard.getLeds ();
+		kbdScanner.updateLeds (
+			leds & USBLED_CAPS_LOCK,
+			leds & USBLED_NUM_LOCK,
+			leds & USBLED_SCROLL_LOCK
+		);
 			
 		lastKeyboardScanTime = millis ();
 	}
@@ -674,9 +670,10 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 
 	// Check for keys that were just released
 	for (byte i = 0; i < keyBuffer.size; ++i) {
-		if (newBuf.find (keyBuffer[i]) < 0) {
+		if (newBuf.find (keyBuffer[i], eventKeyCompare) < 0) {
 			// Key released
 			Log.trace (F("USB Key released: %X\n"), (int) keyBuffer[i]);
+			onKeyReleased (newBuf[i].row, newBuf[i].col);			// Call this now, before we alter i
 			boolean ok = usbKeyboard.release (keyBuffer[i]);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			if (ok) {
@@ -704,14 +701,15 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 	
 	// Check for keys that were just pressed
 	for (byte i = 0; i < newBuf.size; ++i) {
-		if (keyBuffer.find (newBuf[i]) < 0) {
+		if (keyBuffer.find (newBuf[i].key) < 0) {
 			// New key pressed
-			Log.trace (F("USB Key pressed: %X\n"), (int) newBuf[i]);
-			boolean ok = usbKeyboard.press (newBuf[i]);
+			Log.trace (F("USB Key pressed: %X\n"), (int) newBuf[i].key);
+			onKeyPressed (newBuf[i].row, newBuf[i].col);
+			boolean ok = usbKeyboard.press (newBuf[i].key);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			if (ok) {
 #endif
-				keyBuffer.append (newBuf[i]);
+				keyBuffer.append (newBuf[i].key);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			} else {
 #else
