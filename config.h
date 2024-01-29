@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <Arduino.h>
+
 /** \def ENABLE_DEVELOPER_MODE
  *
  * \brief Enable developer mode

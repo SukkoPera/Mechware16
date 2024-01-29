@@ -27,21 +27,18 @@ const byte MATRIX_ROWS = 8;
  */
 const byte MATRIX_COLS = 8;
 
-#include "CircularBuffer.h"
-struct KeyMatrixSample {
-	byte rows;			// If this is made a uint8_t we save 6 bytes, how come?!?
-	byte cols;
-};
-
-/* volatile */ CircularBuffer<KeyMatrixSample, byte, 32> matrixSamples;
-
 #include "LedControl.h"
 LedControl lc (PIN_MAX7221_DATA, PIN_MAX7221_CLK, PIN_MAX7221_SEL, 1 /* Number of MAX72xx chips */);
 
 unsigned long DELAY_TIME = 35;
 
 #include "KbdScannerC16.h"
-KbdScannerC16 kbdScanner;
+KbdScannerC16 kbdScannerC16;
+
+#include "KbdScannerPassive16.h"
+KbdScannerPassive16 kbdScannerPassive;
+
+KeyboardScanner *kbdScanner;
 
 #include "SmallBuffer.h"
 SmallBuffer<word, 16> keyBuffer;
@@ -318,36 +315,6 @@ boolean buildKeyCoordinates () {
 	return found;
 }
 
-// Pin-change ISR, called whenever the C16 polls the keyboard, all we do is snoop what is going on ;)
-ISR (PCINT0_vect) {
-	KeyMatrixSample ms {
-		.rows = PINB,
-		.cols = PIND
-	};
-
-	if (ms.rows != 0xFF) {
-		matrixSamples.put (ms);
-	}
-}
-
-/** \brief Get number of set bits in the binary representation of a number
- * 
- * All hail to Brian Kernighan.
- * 
- * \param[in] n The number
- * \return The number of bits set
- */
-unsigned int countSetBits (int n) { 
-	unsigned int count = 0; 
-
-	while (n) { 
-		n &= n - 1;
-		++count; 
-	} 
-
-	return count; 
-}
-
 // Called when a keypress is detected
 void onKeyPressed (const byte row, const byte col) {
 	switch (mode) {
@@ -478,22 +445,14 @@ void setup () {
 #endif
 
 	Log.setShowLevel (false);
-	Log.info (logo);
-	Log.info (F("Version " MECH16_VERSION_STR "\n"));
+	Log.info (PSTR_TO_F (logo));
+	Log.info (F("---------------------------------------- Version " MECH16_VERSION_STR " ---------\n"));
 	Log.setShowLevel (true);
 	
 	// Wake up and configure the MAX72XX ASAP, since it might show a random pattern at startup
 	lc.shutdown (0, false);
 	lc.setIntensity (0, 15);		// 0-15
 	lc.clearDisplay (0);
-
-	/* Keyboard polling: TED drives the rows, which we have on PORT B, while the keyboard "outputs" the columns, which
-	 * we have on PORT D. They are all INPUTs by default se all we have to do is to enable the pin-change interrupts on
-	 * all pins of PORT B.
-	 */
-	//~ PCMSK0 = (1 << PCINT7) | (1 << PCINT6) | (1 << PCINT5) | (1 << PCINT4) |
-	         //~ (1 << PCINT3) | (1 << PCINT2) | (1 << PCINT1) | (1 << PCINT0);
-	//~ PCICR |= (1 << PCIE0);
 
 	// R/G/B LED pins: configure as OUTPUTs
 	pinMode (PIN_LED_R, OUTPUT);
@@ -533,7 +492,23 @@ void setup () {
 	}
 	updateLighting ();
 
-	if (kbdScanner.begin ()) {
+	// Choose keyboard scanner
+	kbdScanner = &kbdScannerC16;
+	DDRB  = 0x00;   // Output port: all inputs...
+	PORTB = 0xFF;   // ... with pull-ups
+	DDRD = 0x00;	// Input port too, just in case some key is being held at startup
+	PORTD = 0xFF;
+	unsigned long start = millis ();
+	while (millis () - start < 200UL) {
+		if (PINB != 0xFF) {
+			// Detected activity on the wannabe-output port, switch to the passive scanner
+			Log.info (F("Using PASSIVE scanner\n"));
+			kbdScanner = &kbdScannerPassive;
+			break;
+		}
+	}
+
+	if (kbdScanner -> begin ()) {
 		keyBuffer.begin ();
 	} else {
 		Log.error (F("Failed to initialize keyboard scanner\n"));
@@ -548,66 +523,6 @@ boolean isPressed (const Key k) {
 }
 
 void loop () {
-	//~ while (matrixSamples.available ()) {
-		//~ KeyMatrixSample sample = matrixSamples.get ();
-
-		//~ /* When scanning the keyboard, the C16/+4 KERNAL first does a quick test to check if any key is pressed at all:
-		 //~ * it brings all the rows down and checks whether all cols are up or not. If at least one column is down, it
-		 //~ * goes on to check every individual row, as at least one key must be pressed and there's no other way to find
-		 //~ * out exactly which one, otherwise it takes no further action and just terminates the scan there.
-		 //~ */
-		//~ if (sample.rows == 0x00 && sample.cols == 0xFF) {
-			//~ // All keys released
-			//~ for (byte r = 0; r < MATRIX_ROWS; ++r) {
-				//~ for (byte c = 0; c < MATRIX_COLS; ++c) {
-					//~ if (keyboardMatrix[r][c]) {
-						//~ debug (F("Released "));
-						//~ debug (r);
-						//~ debug (F(","));
-						//~ debug (c);
-						//~ debug (F(": "));
-						//~ debugln (KEY_NAMES[r][c]);
-
-						//~ onKeyReleased (r, c);
-
-						//~ keyboardMatrix[r][c] = false;
-					//~ }
-				//~ }
-			//~ }
-		//~ } else if (countSetBits (sample.rows) == 7) {
-			//~ // Exactly one row is cleared, find out which one and update all its columns
-			//~ for (byte r = 0; r < MATRIX_ROWS; ++r) {
-				//~ if ((sample.rows & (1 << r)) == 0) {
-					//~ for (byte c = 0; c < MATRIX_COLS; ++c) {
-						//~ boolean pressed = (sample.cols & (1 << c)) == 0;
-						//~ if (pressed && !keyboardMatrix[r][c]) {
-							//~ debug (F("Pressed "));
-							//~ debug (r);
-							//~ debug (',');
-							//~ debug (c);
-							//~ debug (F(": "));
-							//~ debugln (KEY_NAMES[r][c]);
-
-							//~ onKeyPressed (r, c);
-						//~ } else if (!pressed && keyboardMatrix[r][c]) {
-							//~ debug (F("Released "));
-							//~ debug (r);
-							//~ debug (F(","));
-							//~ debug (c);
-							//~ debug (F(": "));
-							//~ debugln (KEY_NAMES[r][c]);
-
-							//~ onKeyReleased (r, c);
-						//~ }
-						//~ keyboardMatrix[r][c] = pressed;
-					//~ }
-
-					//~ break;		// There is necessarily only one row at 0
-				//~ }
-			//~ }
-		//~ }
-	//~ }
-
 	//~ // Check combos
 	//~ if (isPressed (Key2::CMD) && isPressed (Key2::CTRL)) {
 		//~ if (isPressed (Key2::F1)) {
@@ -635,20 +550,20 @@ void loop () {
 	static unsigned long lastKeyboardScanTime = 0;
 	
 	// Let the scanner do its own housekeeping as often as possible
-	kbdScanner.loop ();
+	kbdScanner -> loop ();
 
 	// Once in a while, do the scanning
 	if (millis () - lastKeyboardScanTime >= KEYBOARD_SCAN_INTERVAL_MS) {
 		KeyBuffer kBuf;
 		kBuf.begin ();
-		KeyboardScanner::ScanStatus scanStatus = kbdScanner.scan (kBuf);
+		KeyboardScanner::ScanStatus scanStatus = kbdScanner -> scan (kBuf);
 		if (scanStatus == KeyboardScanner::SCAN_COMPLETE) {
 			handleKeyboard (kBuf);
 		}
 
 		// Update leds - Note that this needs a patched Keyboard library
 		byte leds = usbKeyboard.getLeds ();
-		kbdScanner.updateLeds (
+		kbdScanner -> updateLeds (
 			leds & USBLED_CAPS_LOCK,
 			leds & USBLED_NUM_LOCK,
 			leds & USBLED_SCROLL_LOCK
