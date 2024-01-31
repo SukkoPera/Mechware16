@@ -50,7 +50,7 @@ const Key KeyMapperC16::keymapSymbolic[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
 };
 
 const Key KeyMapperC16::keymapSymbolicShifted[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
-	{KEY_INSERT,KEY_ENTER,POUND_SIGN,KEY_F7,KEY_F4,KEY_F5,KEY_F6,A('@')},
+	{KEY_INSERT,		KEY_ENTER,			POUND_SIGN,		KEY_F7,		KEY_F4,		KEY_F5,			KEY_F6,				A('@')},
 	{A('#'),			A('W'),				A('A'),			A('$'),		A('Z'),		A('S'),			A('E'),				KEY_LEFT_SHIFT},
 	{A('%'),			A('R'),				A('D'),			A('&'),		A('C'),		A('F'),			A('T'),				A('X')},
 	{A('\''),			A('Y'),				A('G'),			A('('),		A('B'),		A('H'),			A('U'),				A('V')},

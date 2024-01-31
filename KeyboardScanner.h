@@ -37,7 +37,7 @@
 const byte KEYBUF_SIZE = 6;
 
 //! \brief Type used to represent keypresses
-typedef word Key;
+typedef word Key;	// Maybe this could be KeyboardKeycode from HID-Project/src/KeyboardLayouts/ImprovedKeylayouts.h?
 
 //! \brief Type used to report key events (presses/releases)
 struct KeyEvent {

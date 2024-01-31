@@ -38,17 +38,18 @@ KbdScannerC16 kbdScannerC16;
 #include "KbdScannerPassive16.h"
 KbdScannerPassive16 kbdScannerPassive;
 
+/** \brief Actual keyboard scanner in use
+ *
+ * Make sure this is NEVER NULL!
+ */
 KeyboardScanner *kbdScanner;
-
-#include "SmallBuffer.h"
-SmallBuffer<word, 16> keyBuffer;
 
 #include "UsbKeyboard.h"
 UsbKeyboard usbKeyboard;
 
 #include "logo.h"
 
-enum class Key2: byte {
+enum class C16Key: byte {
 	// Numbers
 	_0,
 	_1,
@@ -127,7 +128,7 @@ enum class Key2: byte {
 	NONE = 0xFF
 };
 
-const byte N_PHYSICAL_KEYS = static_cast<byte> (Key2::SPACE) + 1;
+const byte N_PHYSICAL_KEYS = static_cast<byte> (C16Key::SPACE) + 1;
 
 enum class Mode: byte {
 	ALWAYS_OFF,
@@ -168,8 +169,12 @@ MatrixCoordinates ledCoordinates[N_PHYSICAL_KEYS];
  */
 MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
 
-// Current state of the keyboard matrix, true if a key is pressed
-boolean keyboardMatrix[MATRIX_ROWS][MATRIX_COLS] = {false};
+/** \brief Keyboard matrix status
+ *
+ * Basically contains the mapped SB keycode when a key is pressed, 0 otherwise (which is KEY_RESERVED so it should be
+ * OK).
+ */
+Key matrix[MATRIX_ROWS][MATRIX_COLS];
 
 //! Number of physical rows of keys
 constexpr byte N_PHYSICAL_ROWS = 5;
@@ -177,13 +182,13 @@ constexpr byte N_PHYSICAL_ROWS = 5;
 constexpr byte splash0nCols = 18;
 
 // Lists of keys per each row, somehow lined up in "diagonal columns"
-const Key2 splash0row4[splash0nCols] PROGMEM = {Key2::NONE,    Key2::ESC,   Key2::_1,   Key2::_2,    Key2::_3,   Key2::_4,   Key2::_5,    Key2::_6,   Key2::_7,   Key2::_8,    Key2::_9,     Key2::_0,    Key2::LEFT,      Key2::RIGHT,    Key2::UP,     Key2::DOWN,   Key2::DEL,   Key2::F1};
-const Key2 splash0row3[splash0nCols] PROGMEM = {Key2::NONE,    Key2::CTRL,  Key2::Q,    Key2::W,     Key2::E,    Key2::R,    Key2::T,     Key2::Y,    Key2::U,    Key2::I,     Key2::O,      Key2::P,     Key2::AT,        Key2::PLUS,     Key2::MINUS,  Key2::NONE,   Key2::CLEAR, Key2::F2};
-const Key2 splash0row2[splash0nCols] PROGMEM = {Key2::RUNSTOP, Key2::NONE,  Key2::A,    Key2::S,     Key2::D,    Key2::F,    Key2::G,     Key2::H,    Key2::J,    Key2::K,     Key2::L,      Key2::COLON, Key2::SEMICOLON, Key2::ASTERISK, Key2::NONE,   Key2::RETURN, Key2::NONE,  Key2::F3};
-const Key2 splash0row1[splash0nCols] PROGMEM = {Key2::CMD,     Key2::SHIFT, Key2::Z,    Key2::X,     Key2::C,    Key2::V,    Key2::B,     Key2::N,    Key2::M,    Key2::COMMA, Key2::PERIOD, Key2::SLASH, Key2::NONE,      Key2::SHIFT,    Key2::POUND,  Key2::EQUAL,  Key2::NONE,  Key2::HELP};
-const Key2 splash0row0[splash0nCols] PROGMEM = {Key2::NONE,    Key2::NONE,  Key2::NONE, Key2::SPACE, Key2::NONE, Key2::NONE, Key2::SPACE, Key2::NONE, Key2::NONE, Key2::SPACE, Key2::NONE,   Key2::NONE,  Key2::NONE,      Key2::NONE,     Key2::NONE,   Key2::NONE,   Key2::NONE,  Key2::NONE};
+const C16Key splash0row4[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::ESC,   C16Key::_1,   C16Key::_2,    C16Key::_3,   C16Key::_4,   C16Key::_5,    C16Key::_6,   C16Key::_7,   C16Key::_8,    C16Key::_9,     C16Key::_0,    C16Key::LEFT,      C16Key::RIGHT,    C16Key::UP,     C16Key::DOWN,   C16Key::DEL,   C16Key::F1};
+const C16Key splash0row3[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::CTRL,  C16Key::Q,    C16Key::W,     C16Key::E,    C16Key::R,    C16Key::T,     C16Key::Y,    C16Key::U,    C16Key::I,     C16Key::O,      C16Key::P,     C16Key::AT,        C16Key::PLUS,     C16Key::MINUS,  C16Key::NONE,   C16Key::CLEAR, C16Key::F2};
+const C16Key splash0row2[splash0nCols] PROGMEM = {C16Key::RUNSTOP, C16Key::NONE,  C16Key::A,    C16Key::S,     C16Key::D,    C16Key::F,    C16Key::G,     C16Key::H,    C16Key::J,    C16Key::K,     C16Key::L,      C16Key::COLON, C16Key::SEMICOLON, C16Key::ASTERISK, C16Key::NONE,   C16Key::RETURN, C16Key::NONE,  C16Key::F3};
+const C16Key splash0row1[splash0nCols] PROGMEM = {C16Key::CMD,     C16Key::SHIFT, C16Key::Z,    C16Key::X,     C16Key::C,    C16Key::V,    C16Key::B,     C16Key::N,    C16Key::M,    C16Key::COMMA, C16Key::PERIOD, C16Key::SLASH, C16Key::NONE,      C16Key::SHIFT,    C16Key::POUND,  C16Key::EQUAL,  C16Key::NONE,  C16Key::HELP};
+const C16Key splash0row0[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::NONE,  C16Key::NONE, C16Key::SPACE, C16Key::NONE, C16Key::NONE, C16Key::SPACE, C16Key::NONE, C16Key::NONE, C16Key::SPACE, C16Key::NONE,   C16Key::NONE,  C16Key::NONE,      C16Key::NONE,     C16Key::NONE,   C16Key::NONE,   C16Key::NONE,  C16Key::NONE};
 
-constexpr Key2 const * splash0rows[N_PHYSICAL_ROWS] PROGMEM = {splash0row4, splash0row3, splash0row2, splash0row1, splash0row0};
+constexpr C16Key const * splash0rows[N_PHYSICAL_ROWS] PROGMEM = {splash0row4, splash0row3, splash0row2, splash0row1, splash0row0};
 
 void splash0 () {
 	for (byte i = 0; i < splash0nCols; ++i) {
@@ -191,7 +196,7 @@ void splash0 () {
 		for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
 			const byte* krow = pgm_read_byte (&splash0rows[j]);
 			const byte k = pgm_read_byte (&(krow[i]));
-			if (static_cast<Key2> (k) != Key2::NONE) {
+			if (static_cast<C16Key> (k) != C16Key::NONE) {
 				const MatrixCoordinates& pos = ledCoordinates[k];
 				lc.setLed (0, pos.row, pos.col, true);
 			}
@@ -204,7 +209,7 @@ void splash0 () {
 		for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
 			const byte* krow = pgm_read_byte (&splash0rows[j]);
 			const byte k = pgm_read_byte (&(krow[i]));
-			if (static_cast<Key2> (k) != Key2::NONE) {
+			if (static_cast<C16Key> (k) != C16Key::NONE) {
 				const MatrixCoordinates& pos = ledCoordinates[k];
 				lc.setLed (0, pos.row, pos.col, false);
 			}
@@ -213,13 +218,13 @@ void splash0 () {
 }
 
 // Order in which keys appear on the keyboard (+1 for 2 Shifts)
-constexpr Key2 splash_order[N_PHYSICAL_KEYS + 1] PROGMEM = {
-	Key2::ESC, Key2::_1, Key2::_2, Key2::_3, Key2::_4, Key2::_5, Key2::_6, Key2::_7, Key2::_8, Key2::_9, Key2::_0, Key2::LEFT, Key2::RIGHT, Key2::UP, Key2::DOWN, Key2::DEL,
-	Key2::CTRL, Key2::Q, Key2::W, Key2::E, Key2::R, Key2::T, Key2::Y, Key2::U, Key2::I, Key2::O, Key2::P, Key2::AT, Key2::PLUS, Key2::MINUS, Key2::CLEAR,
-	Key2::RUNSTOP, /* Shift Lock */ Key2::A, Key2::S, Key2::D, Key2::F, Key2::G, Key2::H, Key2::J, Key2::K, Key2::L, Key2::COLON, Key2::SEMICOLON, Key2::ASTERISK, Key2::RETURN,
-	Key2::CMD, Key2::SHIFT, Key2::Z, Key2::X, Key2::C, Key2::V, Key2::B, Key2::N, Key2::M, Key2::COMMA, Key2::PERIOD, Key2::SLASH, Key2::SHIFT, Key2::POUND, Key2::EQUAL,
-	Key2::SPACE,
-	Key2::HELP, Key2::F3, Key2::F2, Key2::F1    // Reverse order just to be cool ;)
+constexpr C16Key splash_order[N_PHYSICAL_KEYS + 1] PROGMEM = {
+	C16Key::ESC, C16Key::_1, C16Key::_2, C16Key::_3, C16Key::_4, C16Key::_5, C16Key::_6, C16Key::_7, C16Key::_8, C16Key::_9, C16Key::_0, C16Key::LEFT, C16Key::RIGHT, C16Key::UP, C16Key::DOWN, C16Key::DEL,
+	C16Key::CTRL, C16Key::Q, C16Key::W, C16Key::E, C16Key::R, C16Key::T, C16Key::Y, C16Key::U, C16Key::I, C16Key::O, C16Key::P, C16Key::AT, C16Key::PLUS, C16Key::MINUS, C16Key::CLEAR,
+	C16Key::RUNSTOP, /* Shift Lock */ C16Key::A, C16Key::S, C16Key::D, C16Key::F, C16Key::G, C16Key::H, C16Key::J, C16Key::K, C16Key::L, C16Key::COLON, C16Key::SEMICOLON, C16Key::ASTERISK, C16Key::RETURN,
+	C16Key::CMD, C16Key::SHIFT, C16Key::Z, C16Key::X, C16Key::C, C16Key::V, C16Key::B, C16Key::N, C16Key::M, C16Key::COMMA, C16Key::PERIOD, C16Key::SLASH, C16Key::SHIFT, C16Key::POUND, C16Key::EQUAL,
+	C16Key::SPACE,
+	C16Key::HELP, C16Key::F3, C16Key::F2, C16Key::F1    // Reverse order just to be cool ;)
 };
 	
 void splash1 () {
@@ -236,40 +241,38 @@ void splash1 () {
 	}
 }
 
-constexpr Key2 keymap[MATRIX_ROWS][MATRIX_COLS] = {
-	{Key2::DEL,  Key2::RETURN,   Key2::POUND,     Key2::HELP,  Key2::F1,     Key2::F2,    Key2::F3,    Key2::AT},
-	{Key2::_3,   Key2::W,        Key2::A,         Key2::_4,    Key2::Z,      Key2::S,     Key2::E,     Key2::SHIFT},
-	{Key2::_5,   Key2::R,        Key2::D,         Key2::_6,    Key2::C,      Key2::F,     Key2::T,     Key2::X},
-	{Key2::_7,   Key2::Y,        Key2::G,         Key2::_8,    Key2::B,      Key2::H,     Key2::U,     Key2::V},
-	{Key2::_9,   Key2::I,        Key2::J,         Key2::_0,    Key2::M,      Key2::K,     Key2::O,     Key2::N},
-	{Key2::DOWN, Key2::P,        Key2::L,         Key2::UP,    Key2::PERIOD, Key2::COLON, Key2::MINUS, Key2::COMMA},
-	{Key2::LEFT, Key2::ASTERISK, Key2::SEMICOLON, Key2::RIGHT, Key2::ESC,    Key2::EQUAL, Key2::PLUS,  Key2::SLASH},
-	{Key2::_1,   Key2::CLEAR,    Key2::CTRL,      Key2::_2,    Key2::SPACE,  Key2::CMD,   Key2::Q,     Key2::RUNSTOP}
+constexpr C16Key keymap[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
+	{C16Key::DEL,  C16Key::RETURN,   C16Key::POUND,     C16Key::HELP,  C16Key::F1,     C16Key::F2,    C16Key::F3,    C16Key::AT},
+	{C16Key::_3,   C16Key::W,        C16Key::A,         C16Key::_4,    C16Key::Z,      C16Key::S,     C16Key::E,     C16Key::SHIFT},
+	{C16Key::_5,   C16Key::R,        C16Key::D,         C16Key::_6,    C16Key::C,      C16Key::F,     C16Key::T,     C16Key::X},
+	{C16Key::_7,   C16Key::Y,        C16Key::G,         C16Key::_8,    C16Key::B,      C16Key::H,     C16Key::U,     C16Key::V},
+	{C16Key::_9,   C16Key::I,        C16Key::J,         C16Key::_0,    C16Key::M,      C16Key::K,     C16Key::O,     C16Key::N},
+	{C16Key::DOWN, C16Key::P,        C16Key::L,         C16Key::UP,    C16Key::PERIOD, C16Key::COLON, C16Key::MINUS, C16Key::COMMA},
+	{C16Key::LEFT, C16Key::ASTERISK, C16Key::SEMICOLON, C16Key::RIGHT, C16Key::ESC,    C16Key::EQUAL, C16Key::PLUS,  C16Key::SLASH},
+	{C16Key::_1,   C16Key::CLEAR,    C16Key::CTRL,      C16Key::_2,    C16Key::SPACE,  C16Key::CMD,   C16Key::Q,     C16Key::RUNSTOP}
 };
 
 // Only useful for debugging
-constexpr char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
-	{"DEL", "RET", "£",   "HLP", "F1",  "F2", "F3", "@"},
-	{"3",   "W",   "A",   "4",   "Z",   "S",  "E",  "SHF"},
-	{"5",   "R",   "D",   "6",   "C",   "F",  "T",  "X"},
-	{"7",   "Y",   "G",   "8",   "B",   "H",  "U",  "V"},
-	{"9",   "I",   "J",   "0",   "M",   "K",  "O",  "N"},
-	{"DN",  "P",   "L",   "UP",  ".",   ":",  "-",  ","},
-	{"LF",  "*",   ";",   "RT",  "ESC", "=",  "+",  "/"},
-	{"1",   "CLR", "CTL", "2",   "SPC", "C=", "Q",  "RUN"}
-};
+//~ constexpr char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
+	//~ {"DEL", "RET", "£",   "HLP", "F1",  "F2", "F3", "@"},
+	//~ {"3",   "W",   "A",   "4",   "Z",   "S",  "E",  "SHF"},
+	//~ {"5",   "R",   "D",   "6",   "C",   "F",  "T",  "X"},
+	//~ {"7",   "Y",   "G",   "8",   "B",   "H",  "U",  "V"},
+	//~ {"9",   "I",   "J",   "0",   "M",   "K",  "O",  "N"},
+	//~ {"DN",  "P",   "L",   "UP",  ".",   ":",  "-",  ","},
+	//~ {"LF",  "*",   ";",   "RT",  "ESC", "=",  "+",  "/"},
+	//~ {"1",   "CLR", "CTL", "2",   "SPC", "C=", "Q",  "RUN"}
+//~ };
 
 // Populates the ledCoordinates array
 boolean buildLedCoordinates () {
 	bool found;
 	
 	for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {
-		Key2 k = static_cast<Key2> (i);
-
 		found = false;
 		for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
 			for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
-				if (keymap[row][col] == k) {
+				if (pgm_read_byte (&keymap[row][col]) == i) {
 					/* The led matrix was supposed to be the same as the keyboard matrix. I don't know whether I made a
 					 * wiring mistake or if LedControl numbers things differently, but it turns out we need to swap the
 					 * coordinates and modify them slightly in order to use them with lc.setLed().
@@ -294,12 +297,10 @@ boolean buildKeyCoordinates () {
 	bool found;
 	
 	for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {
-		Key2 k = static_cast<Key2> (i);
-
 		found = false;
 		for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
 			for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
-				if (keymap[row][col] == k) {
+				if (pgm_read_byte (&keymap[row][col]) == i) {
 					keyCoordinates[i].row = row;
 					keyCoordinates[i].col = col;
 					found = true;
@@ -319,14 +320,14 @@ boolean buildKeyCoordinates () {
 void onKeyPressed (const byte row, const byte col) {
 	switch (mode) {
 		case Mode::PRESSED_ON: {
-			const Key2 k = keymap[row][col];
-			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const byte k = pgm_read_byte (&keymap[row][col]);
+			const MatrixCoordinates& pos = ledCoordinates[k];
 			lc.setLed (0, pos.row, pos.col, true);
 			break;
 		}
 		case Mode::PRESSED_OFF: {
-			const Key2 k = keymap[row][col];
-			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const byte k = pgm_read_byte (&keymap[row][col]);
+			const MatrixCoordinates& pos = ledCoordinates[k];
 			lc.setLed (0, pos.row, pos.col, false);
 			break;
 		}
@@ -341,14 +342,14 @@ void onKeyPressed (const byte row, const byte col) {
 void onKeyReleased (const byte row, const byte col) {
 	switch (mode) {
 		case Mode::PRESSED_ON: {
-			const Key2 k = keymap[row][col];
-			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const byte k = pgm_read_byte (&keymap[row][col]);
+			const MatrixCoordinates& pos = ledCoordinates[k];
 			lc.setLed (0, pos.row, pos.col, false);
 			break;
 		}
 		case Mode::PRESSED_OFF: {
-			const Key2 k = keymap[row][col];
-			const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
+			const byte k = pgm_read_byte (&keymap[row][col]);
+			const MatrixCoordinates& pos = ledCoordinates[k];
 			lc.setLed (0, pos.row, pos.col, true);
 			break;
 		}
@@ -358,6 +359,11 @@ void onKeyReleased (const byte row, const byte col) {
 			break;
 	}
 }
+
+//~ boolean isPressed (const C16Key k) {
+	//~ const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];	// FIXME: Check bounds
+	//~ return matrix[pos.row][pos.col] != 0;
+//~ }
 
 void updateLighting () {
 	// Update the LED pattern according to the chosen mode
@@ -371,9 +377,9 @@ void updateLighting () {
 		case Mode::PRESSED_OFF:
 			for (byte r = 0; r < MATRIX_ROWS; ++r) {
 				for (byte c = 0; c < MATRIX_COLS; ++c) {
-					const Key2 k = keymap[r][c];
-					const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
-					lc.setLed (0, pos.row, pos.col, !keyboardMatrix[r][c]);
+					const byte k = pgm_read_byte (&keymap[r][c]);
+					const MatrixCoordinates& pos = ledCoordinates[k];
+					lc.setLed (0, pos.row, pos.col, matrix[r][c] != 0 ? false : true);
 				}
 			}
 			break;
@@ -386,9 +392,9 @@ void updateLighting () {
 		case Mode::PRESSED_ON:
 			for (byte r = 0; r < MATRIX_ROWS; ++r) {
 				for (byte c = 0; c < MATRIX_COLS; ++c) {
-					const Key2 k = keymap[r][c];
-					const MatrixCoordinates& pos = ledCoordinates[static_cast<int> (k)];
-					lc.setLed (0, pos.row, pos.col, keyboardMatrix[r][c]);
+					const byte k = pgm_read_byte (&keymap[r][c]);
+					const MatrixCoordinates& pos = ledCoordinates[k];
+					lc.setLed (0, pos.row, pos.col, matrix[r][c] != 0 ? true : false);
 				}
 			}
 			break;
@@ -448,6 +454,8 @@ void setup () {
 	Log.info (PSTR_TO_F (logo));
 	Log.info (F("---------------------------------------- Version " MECH16_VERSION_STR " ---------\n"));
 	Log.setShowLevel (true);
+
+	Log.info (F("Built on %s %s\n"), __DATE__, __TIME__);
 	
 	// Wake up and configure the MAX72XX ASAP, since it might show a random pattern at startup
 	lc.shutdown (0, false);
@@ -509,7 +517,12 @@ void setup () {
 	}
 
 	if (kbdScanner -> begin ()) {
-		keyBuffer.begin ();
+		// Clear matrix
+		for (byte r = 0; r < MATRIX_ROWS; ++r) {
+			for (byte c = 0; c < MATRIX_COLS; ++c) {
+				matrix[r][c] = 0;
+			}
+		}
 	} else {
 		Log.error (F("Failed to initialize keyboard scanner\n"));
 	}
@@ -517,27 +530,22 @@ void setup () {
 	usbKeyboard.begin ();
 }
 
-boolean isPressed (const Key k) {
-	const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];	// FIXME: Check bounds
-	return keyboardMatrix[pos.row][pos.col];
-}
-
 void loop () {
 	//~ // Check combos
-	//~ if (isPressed (Key2::CMD) && isPressed (Key2::CTRL)) {
-		//~ if (isPressed (Key2::F1)) {
+	//~ if (isPressed (C16Key::CMD) && isPressed (C16Key::CTRL)) {
+		//~ if (isPressed (C16Key::F1)) {
 			//~ onSetMode (Mode::ALWAYS_OFF);
-		//~ } else if (isPressed (Key2::F2)) {
+		//~ } else if (isPressed (C16Key::F2)) {
 			//~ onSetMode (Mode::ALWAYS_ON);
-		//~ } else if (isPressed (Key2::F3)) {
+		//~ } else if (isPressed (C16Key::F3)) {
 			//~ onSetMode (Mode::PRESSED_ON);
-		//~ } else if (isPressed (Key2::HELP)) {
+		//~ } else if (isPressed (C16Key::HELP)) {
 			//~ onSetMode (Mode::PRESSED_OFF);
-		//~ } else if (isPressed (Key2::_1)) {
+		//~ } else if (isPressed (C16Key::_1)) {
 			//~ onSetAnimation (0);
-		//~ } else if (isPressed (Key2::_2)) {
+		//~ } else if (isPressed (C16Key::_2)) {
 			//~ onSetAnimation (1);
-		//~ } else if (isPressed (Key2::RUNSTOP)) {
+		//~ } else if (isPressed (C16Key::RUNSTOP)) {
 			//~ // TODO: RESET
 		//~ }
 	//~ }
@@ -573,6 +581,10 @@ void loop () {
 	}
 }
 
+/** \brief Updates matrix and generates key press/release events
+ *
+ * \param newBuf Keys currently being pressed
+ */
 void handleKeyboard (const KeyBuffer& newBuf) {
 	//~ if (newBuf.size > 0) {
 		//~ debug (F("Handling new buffer: "));
@@ -584,47 +596,41 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 	//~ }
 
 	// Check for keys that were just released
-	for (byte i = 0; i < keyBuffer.size; ++i) {
-		if (newBuf.find (keyBuffer[i], eventKeyCompare) < 0) {
-			// Key released
-			Log.trace (F("USB Key released: %X\n"), (int) keyBuffer[i]);
-			onKeyReleased (newBuf[i].row, newBuf[i].col);			// Call this now, before we alter i
-			boolean ok = usbKeyboard.release (keyBuffer[i]);
+	for (byte r = 0; r < MATRIX_ROWS; ++r) {
+		for (byte c = 0; c < MATRIX_COLS; ++c) {
+			Key& usbKeycode = matrix[r][c];
+			if (newBuf.find (usbKeycode, eventKeyCompare) < 0) {
+				// Key released
+				Log.trace (F("USB Key released: %X\n"), (int) usbKeycode);
+				onKeyReleased (r, c);			// Call this now, before we alter i
+				boolean ok = usbKeyboard.release (usbKeycode);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
-			if (ok) {
+				if (ok) {
 #endif
-				if (!keyBuffer.remove (keyBuffer[i])) {
-					Log.error (F("Remove from keybuffer failed\n"));
+					usbKeycode = 0;		// It's a reference so this works :)
+#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 				} else {
-					/* OK, this is crap but it works: basically we have changed the
-					 * array we are iterating on, so we'd better restart from
-					 * scratch
-					 *
-					 * (The for loop will make this 0 for the next cycle.)
-					 */
-					i = -1;
-				}
-#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
-			} else {
 #else
-			if (!ok) {
+				if (!ok) {
 #endif
-				Log.error (F("Key release failed: %X\n"), (int) keyBuffer[i]);
+					Log.error (F("Key release failed: %X\n"), (int) usbKeycode);
+				}
 			}
 		}
 	}
 	
 	// Check for keys that were just pressed
 	for (byte i = 0; i < newBuf.size; ++i) {
-		if (keyBuffer.find (newBuf[i].key) < 0) {
+		const KeyEvent& evt = newBuf[i];
+		if (matrix[evt.row][evt.col] != evt.key) {
 			// New key pressed
-			Log.trace (F("USB Key pressed: %X\n"), (int) newBuf[i].key);
-			onKeyPressed (newBuf[i].row, newBuf[i].col);
-			boolean ok = usbKeyboard.press (newBuf[i].key);
+			Log.trace (F("USB Key pressed: %X\n"), (int) evt.key);
+			onKeyPressed (evt.row, evt.col);
+			boolean ok = usbKeyboard.press (evt.key);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			if (ok) {
 #endif
-				keyBuffer.append (newBuf[i].key);
+				matrix[evt.row][evt.col] = evt.key;
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			} else {
 #else
@@ -633,7 +639,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 				/* Any failures are probably due to the internal HID Library
 				 * buffer being full
 				 */
-				Log.error (F("Key press failed: %X\n"), (int) keyBuffer[i]);
+				Log.error (F("Key press failed: %X\n"), (int) evt.key);
 			}
 		}
 	}
