@@ -47,88 +47,22 @@ KeyboardScanner *kbdScanner;
 #include "UsbKeyboard.h"
 UsbKeyboard usbKeyboard;
 
-#include "logo.h"
+#include "AnimationChasing.h"
+AnimationChasing animationChasing;
 
-enum class C16Key: byte {
-	// Numbers
-	_0,
-	_1,
-	_2,
-	_3,
-	_4,
-	_5,
-	_6,
-	_7,
-	_8,
-	_9,
-	
-	// Letters
-	A,
-	B,
-	C,
-	D,
-	E,
-	F,
-	G,
-	H,
-	I,
-	J,
-	K,
-	L,
-	M,
-	N,
-	O,
-	P,
-	Q,
-	R,
-	S,
-	T,
-	U,
-	V,
-	W,
-	X,
-	Y,
-	Z,
-	
-	// Function
-	F1,
-	F2,
-	F3,
-	HELP,
-	
-	// Cursor
-	UP,
-	DOWN,
-	LEFT,
-	RIGHT,
-	
-	// Others
-	ASTERISK,
-	AT,
-	CLEAR,
-	CMD,
-	COLON,
-	COMMA,
-	CTRL,
-	DEL,
-	RETURN,
-	EQUAL,
-	ESC,
-	MINUS,
-	PERIOD,
-	PLUS,
-	POUND,
-	RUNSTOP,
-	SEMICOLON,
-	SHIFT,
-	SLASH,
-	SPACE,
+#include "AnimationScrollingColumn.h"
+AnimationScrollingColumn animationScrollingColumn;
 
-	// Fake key placeholder
-	NONE = 0xFF
+constexpr byte N_ANIMATIONS = 2;
+
+Animation *animations[N_ANIMATIONS] = {
+	&animationChasing,
+	&animationScrollingColumn
 };
 
-const byte N_PHYSICAL_KEYS = static_cast<byte> (C16Key::SPACE) + 1;
+#include "C16Key.h"
+#include "logo.h"
+
 
 enum class Mode: byte {
 	ALWAYS_OFF,
@@ -137,9 +71,18 @@ enum class Mode: byte {
 	PRESSED_OFF
 };
 
+// MAX72xx min/max brightness values
+constexpr byte MIN_BRIGHTNESS = 0;
+constexpr byte MAX_BRIGHTNESS = 15;
+
+//! \name Configuration values saved in EEPROM
+//! @{
 Mode mode = Mode::PRESSED_OFF;
 
-byte animation = 0;
+byte animationId = 0;
+
+byte brightness = MAX_BRIGHTNESS;
+//! @}
 
 /*******************************************************************************
  * END OF SETTINGS
@@ -151,13 +94,11 @@ Logging Log;
 #include <EEPROM.h>
 constexpr word EEP_ANIMATION = 0x100;
 constexpr word EEP_MODE = 0x101;
+constexpr word EEP_BRIGHTNESS = 0x102;
 
 #include <avr/pgmspace.h>
 
-struct MatrixCoordinates {
-	byte row;
-	byte col;
-};
+#include "MatrixCoordinates.h"
 
 /* Maps a key to the (row, col) tuple that controls its led.
  * Built by buildLedCoordinates().
@@ -175,71 +116,6 @@ MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
  * OK).
  */
 Key matrix[MATRIX_ROWS][MATRIX_COLS];
-
-//! Number of physical rows of keys
-constexpr byte N_PHYSICAL_ROWS = 5;
-
-constexpr byte splash0nCols = 18;
-
-// Lists of keys per each row, somehow lined up in "diagonal columns"
-const C16Key splash0row4[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::ESC,   C16Key::_1,   C16Key::_2,    C16Key::_3,   C16Key::_4,   C16Key::_5,    C16Key::_6,   C16Key::_7,   C16Key::_8,    C16Key::_9,     C16Key::_0,    C16Key::LEFT,      C16Key::RIGHT,    C16Key::UP,     C16Key::DOWN,   C16Key::DEL,   C16Key::F1};
-const C16Key splash0row3[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::CTRL,  C16Key::Q,    C16Key::W,     C16Key::E,    C16Key::R,    C16Key::T,     C16Key::Y,    C16Key::U,    C16Key::I,     C16Key::O,      C16Key::P,     C16Key::AT,        C16Key::PLUS,     C16Key::MINUS,  C16Key::NONE,   C16Key::CLEAR, C16Key::F2};
-const C16Key splash0row2[splash0nCols] PROGMEM = {C16Key::RUNSTOP, C16Key::NONE,  C16Key::A,    C16Key::S,     C16Key::D,    C16Key::F,    C16Key::G,     C16Key::H,    C16Key::J,    C16Key::K,     C16Key::L,      C16Key::COLON, C16Key::SEMICOLON, C16Key::ASTERISK, C16Key::NONE,   C16Key::RETURN, C16Key::NONE,  C16Key::F3};
-const C16Key splash0row1[splash0nCols] PROGMEM = {C16Key::CMD,     C16Key::SHIFT, C16Key::Z,    C16Key::X,     C16Key::C,    C16Key::V,    C16Key::B,     C16Key::N,    C16Key::M,    C16Key::COMMA, C16Key::PERIOD, C16Key::SLASH, C16Key::NONE,      C16Key::SHIFT,    C16Key::POUND,  C16Key::EQUAL,  C16Key::NONE,  C16Key::HELP};
-const C16Key splash0row0[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::NONE,  C16Key::NONE, C16Key::SPACE, C16Key::NONE, C16Key::NONE, C16Key::SPACE, C16Key::NONE, C16Key::NONE, C16Key::SPACE, C16Key::NONE,   C16Key::NONE,  C16Key::NONE,      C16Key::NONE,     C16Key::NONE,   C16Key::NONE,   C16Key::NONE,  C16Key::NONE};
-
-constexpr C16Key const * splash0rows[N_PHYSICAL_ROWS] PROGMEM = {splash0row4, splash0row3, splash0row2, splash0row1, splash0row0};
-
-void splash0 () {
-	for (byte i = 0; i < splash0nCols; ++i) {
-		// Turn on a column...
-		for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
-			const byte* krow = pgm_read_byte (&splash0rows[j]);
-			const byte k = pgm_read_byte (&(krow[i]));
-			if (static_cast<C16Key> (k) != C16Key::NONE) {
-				const MatrixCoordinates& pos = ledCoordinates[k];
-				lc.setLed (0, pos.row, pos.col, true);
-			}
-		}
-
-		// ... wait a bit...
-		delay (60);
-
-		// ... and turn it off
-		for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
-			const byte* krow = pgm_read_byte (&splash0rows[j]);
-			const byte k = pgm_read_byte (&(krow[i]));
-			if (static_cast<C16Key> (k) != C16Key::NONE) {
-				const MatrixCoordinates& pos = ledCoordinates[k];
-				lc.setLed (0, pos.row, pos.col, false);
-			}
-		}
-	}
-}
-
-// Order in which keys appear on the keyboard (+1 for 2 Shifts)
-constexpr C16Key splash_order[N_PHYSICAL_KEYS + 1] PROGMEM = {
-	C16Key::ESC, C16Key::_1, C16Key::_2, C16Key::_3, C16Key::_4, C16Key::_5, C16Key::_6, C16Key::_7, C16Key::_8, C16Key::_9, C16Key::_0, C16Key::LEFT, C16Key::RIGHT, C16Key::UP, C16Key::DOWN, C16Key::DEL,
-	C16Key::CTRL, C16Key::Q, C16Key::W, C16Key::E, C16Key::R, C16Key::T, C16Key::Y, C16Key::U, C16Key::I, C16Key::O, C16Key::P, C16Key::AT, C16Key::PLUS, C16Key::MINUS, C16Key::CLEAR,
-	C16Key::RUNSTOP, /* Shift Lock */ C16Key::A, C16Key::S, C16Key::D, C16Key::F, C16Key::G, C16Key::H, C16Key::J, C16Key::K, C16Key::L, C16Key::COLON, C16Key::SEMICOLON, C16Key::ASTERISK, C16Key::RETURN,
-	C16Key::CMD, C16Key::SHIFT, C16Key::Z, C16Key::X, C16Key::C, C16Key::V, C16Key::B, C16Key::N, C16Key::M, C16Key::COMMA, C16Key::PERIOD, C16Key::SLASH, C16Key::SHIFT, C16Key::POUND, C16Key::EQUAL,
-	C16Key::SPACE,
-	C16Key::HELP, C16Key::F3, C16Key::F2, C16Key::F1    // Reverse order just to be cool ;)
-};
-	
-void splash1 () {
-	for (byte i = 0; i < N_PHYSICAL_KEYS + 1; ++i) {
-		for (byte j = 0; j < 3; ++j) {
-			const byte k = pgm_read_byte (&(splash_order[i + j]));
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc.setLed (0, pos.row, pos.col, true);
-		}
-		delay (40);
-		const byte k = pgm_read_byte (&(splash_order[i]));
-		const MatrixCoordinates& pos = ledCoordinates[k];
-		lc.setLed (0, pos.row, pos.col, false);
-	}
-}
 
 constexpr C16Key keymap[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
 	{C16Key::DEL,  C16Key::RETURN,   C16Key::POUND,     C16Key::HELP,  C16Key::F1,     C16Key::F2,    C16Key::F3,    C16Key::AT},
@@ -360,10 +236,10 @@ void onKeyReleased (const byte row, const byte col) {
 	}
 }
 
-//~ boolean isPressed (const C16Key k) {
-	//~ const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];	// FIXME: Check bounds
-	//~ return matrix[pos.row][pos.col] != 0;
-//~ }
+boolean isPressed (const C16Key k) {
+	const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];	// FIXME: Check bounds
+	return matrix[pos.row][pos.col] != 0;
+}
 
 void updateLighting () {
 	// Update the LED pattern according to the chosen mode
@@ -412,28 +288,22 @@ void onSetMode (const Mode newMode) {
 }
 
 void onSetAnimation (const int newAnimation) {
-	if (newAnimation != animation) {
+	if (newAnimation != animationId) {
 		Log.debug (F("Setting animation %d\n"), static_cast<int> (newAnimation));
 		
-		animation = newAnimation;
-		EEPROM.write (EEP_ANIMATION, static_cast<byte> (animation));
+		animationId = newAnimation;
+		EEPROM.write (EEP_ANIMATION, static_cast<byte> (animationId));
 	}
 }
 
-void doAnimation () {
-	Log.debug (F("Playing intro animation %d\n"), static_cast<int> (animation));
-		
-	switch (animation) {
-		case 0:
-		default:
-			splash0 ();
-			break;
-		case 1:
-			splash1 ();
-			break;
+void onSetBrightness (const int8_t diff) {
+	int newBrightness = brightness + diff;
+	if (newBrightness >= MIN_BRIGHTNESS && newBrightness <= MAX_BRIGHTNESS) {
+		brightness = static_cast<byte> (newBrightness);
+		EEPROM.write (EEP_BRIGHTNESS, static_cast<byte> (brightness));
+		lc.setIntensity (0, brightness);
+		Log.debug (F("Brightness set to %d\n"), static_cast<int> (brightness));
 	}
-
-	Log.debug (F("Animation done\n"));
 }
 
 void setup () {
@@ -459,13 +329,20 @@ void setup () {
 	
 	// Wake up and configure the MAX72XX ASAP, since it might show a random pattern at startup
 	lc.shutdown (0, false);
-	lc.setIntensity (0, 15);		// 0-15
 	lc.clearDisplay (0);
+	brightness = EEPROM.read (EEP_BRIGHTNESS);
+	if (brightness > MAX_BRIGHTNESS) {
+		brightness = MAX_BRIGHTNESS;
+	}
+	lc.setIntensity (0, brightness);
 
-	// R/G/B LED pins: configure as OUTPUTs
+	// R/G/B LED pins: configure as OUTPUTs and turn on
 	pinMode (PIN_LED_R, OUTPUT);
+	digitalWrite (PIN_LED_R, HIGH);
 	pinMode (PIN_LED_G, OUTPUT);
+	digitalWrite (PIN_LED_G, HIGH);
 	pinMode (PIN_LED_B, OUTPUT);
+	digitalWrite (PIN_LED_B, HIGH);
 
 	// Build the required coordinates array
 	if (!buildLedCoordinates () || !buildKeyCoordinates ()) {
@@ -480,34 +357,35 @@ void setup () {
 		}
 	}
 
-	// Do the power-up animation
-	byte b = EEPROM.read (EEP_ANIMATION);
-	if (b < 2) {
-		animation = b;
-	} else {
-		// Default animation
-		animation = 0;
-	}
-	doAnimation ();
-
-	// Prepare the initial LED pattern according to the saved mode
-	b = EEPROM.read (EEP_MODE);
-	if (b <= static_cast<byte> (Mode::PRESSED_OFF)) {
-		mode = static_cast<Mode> (b);
-	} else {
-		// Default mode
-		mode = Mode::PRESSED_OFF;
-	}
-	updateLighting ();
-
-	// Choose keyboard scanner
+	// Start with normali keyboard scanner...
 	kbdScanner = &kbdScannerC16;
 	DDRB  = 0x00;   // Output port: all inputs...
 	PORTB = 0xFF;   // ... with pull-ups
 	DDRD = 0x00;	// Input port too, just in case some key is being held at startup
 	PORTD = 0xFF;
+
+	// ... and while we play the power-up animation...
+	animationId = EEPROM.read (EEP_ANIMATION);
+	if (animationId >= N_ANIMATIONS) {
+		// Default animation
+		animationId = 0;
+	}
+
+	Log.debug (F("Playing intro animation %d\n"), static_cast<int> (animationId));
+	Animation& animation = *animations[animationId];
+	animation.begin (lc);
 	unsigned long start = millis ();
-	while (millis () - start < 200UL) {
+	while (animation.step ()) {
+		// ... check if we have activity on PINB (our wannabe-output port) ...
+		if (PINB != 0xFF) {
+			// ... and, if we do, switch to the passive scanner
+			Log.info (F("Using PASSIVE scanner\n"));
+			kbdScanner = &kbdScannerPassive;
+		}
+	}
+
+	// If animation takes less than 200 ms, wait for another bit, just in case
+	while ((kbdScanner != &kbdScannerPassive) && (millis () - start < 200UL)) {
 		if (PINB != 0xFF) {
 			// Detected activity on the wannabe-output port, switch to the passive scanner
 			Log.info (F("Using PASSIVE scanner\n"));
@@ -515,6 +393,17 @@ void setup () {
 			break;
 		}
 	}
+	Log.debug (F("Animation done\n"));
+
+	// Prepare the initial LED pattern according to the saved mode
+	byte b = EEPROM.read (EEP_MODE);
+	if (b <= static_cast<byte> (Mode::PRESSED_OFF)) {
+		mode = static_cast<Mode> (b);
+	} else {
+		// Default mode
+		mode = Mode::PRESSED_OFF;
+	}
+	updateLighting ();
 
 	if (kbdScanner -> begin ()) {
 		// Clear matrix
@@ -531,24 +420,36 @@ void setup () {
 }
 
 void loop () {
-	//~ // Check combos
-	//~ if (isPressed (C16Key::CMD) && isPressed (C16Key::CTRL)) {
-		//~ if (isPressed (C16Key::F1)) {
-			//~ onSetMode (Mode::ALWAYS_OFF);
-		//~ } else if (isPressed (C16Key::F2)) {
-			//~ onSetMode (Mode::ALWAYS_ON);
-		//~ } else if (isPressed (C16Key::F3)) {
-			//~ onSetMode (Mode::PRESSED_ON);
-		//~ } else if (isPressed (C16Key::HELP)) {
-			//~ onSetMode (Mode::PRESSED_OFF);
-		//~ } else if (isPressed (C16Key::_1)) {
-			//~ onSetAnimation (0);
-		//~ } else if (isPressed (C16Key::_2)) {
-			//~ onSetAnimation (1);
-		//~ } else if (isPressed (C16Key::RUNSTOP)) {
-			//~ // TODO: RESET
-		//~ }
-	//~ }
+	static C16Key lastCombo = C16Key::NONE;
+	
+	// Check combos
+	if (isPressed (C16Key::CMD) && isPressed (C16Key::CTRL)) {
+		if (lastCombo == C16Key::NONE || !isPressed (lastCombo)) {		// Poor way to avoid key repetitions
+			if (isPressed (C16Key::F1)) {
+				onSetMode (Mode::ALWAYS_OFF);
+			} else if (isPressed (C16Key::F2)) {
+				onSetMode (Mode::ALWAYS_ON);
+			} else if (isPressed (C16Key::F3)) {
+				onSetMode (Mode::PRESSED_ON);
+			} else if (isPressed (C16Key::HELP)) {
+				onSetMode (Mode::PRESSED_OFF);
+			} else if (isPressed (C16Key::_1)) {
+				onSetAnimation (0);						
+			} else if (isPressed (C16Key::_2)) {
+				onSetAnimation (1);
+			} else if (isPressed (C16Key::PLUS)) {
+				onSetBrightness (+1);
+				lastCombo = C16Key::PLUS;
+			} else if (isPressed (C16Key::MINUS)) {
+				onSetBrightness (-1);
+				lastCombo = C16Key::MINUS;
+			} else if (isPressed (C16Key::RUNSTOP)) {
+				// TODO: RESET
+			} else {
+				lastCombo = C16Key::NONE;
+			}
+		}
+	}
 	
 	//~ digitalWrite (PIN_LED_R, HIGH);
 	//~ delay (1000);

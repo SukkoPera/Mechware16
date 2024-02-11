@@ -16,8 +16,7 @@
  */
 
 #include <Arduino.h>
-//~ #include <HID-Project.h>
-//~ #include "MatrixKeyboardScanner.h"
+#include "config.h"
 #include "KbdScannerC16.h"
 #include "UsbKeyboard.h"
 
@@ -46,7 +45,7 @@ const Key KeyMapperC16::keymapSymbolic[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
 	{A('9'),			A('i'),				A('j'),			A('0'),		A('m'),		A('k'),			A('o'),				A('n')},
 	{KEY_DOWN,			A('p'),				A('l'),			KEY_UP,		A('.'),		A(':'),			A('-'),				A(',')},
 	{KEY_LEFT,			A('*'),				A(';'),			KEY_RIGHT,	KEY_ESC,	A('='),			A('+'),				A('/')},
-	{A('1'),			KEY_HOME,			KEY_LEFT_CTRL,	A('2'),		A('	'),		KEY_LEFT_ALT,	A('q'),				KEY_TAB}
+	{A('1'),			KEY_HOME,			KEY_LEFT_CTRL,	A('2'),		A(' '),		KEY_LEFT_ALT,	A('q'),				KEY_TAB}
 };
 
 const Key KeyMapperC16::keymapSymbolicShifted[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {

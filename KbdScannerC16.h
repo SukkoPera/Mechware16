@@ -17,10 +17,8 @@
 
 #pragma once
 
-#include "config.h"
 #include "KeyMapperC16.h"
 #include "MatrixKeyboardScanner.h"
-//~ #include "Log.h"
 
 //! \brief C16/Plus4 keyboard scanner
 class KbdScannerC16: public MatrixKeyboardScanner<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte, DEBOUNCE_FACTOR_C16, KeyMapperC16> {

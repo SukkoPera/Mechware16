@@ -25,7 +25,7 @@
  * This currently waits for the serial port to be opened at startup and has
  * debug messages enabled by default.
  */
-#define ENABLE_DEVELOPER_MODE
+//~ #define ENABLE_DEVELOPER_MODE
 
 /** \def DISABLE_LOGGING
  *
@@ -108,8 +108,6 @@ const byte MAX_SERCMD_LEN = 32;
  * END OF SETTINGS
  ******************************************************************************/
 
-
-#include <Arduino.h>
 
 //! \name Version number stuff
 //! @{
