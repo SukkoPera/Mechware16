@@ -237,8 +237,12 @@ void onKeyReleased (const byte row, const byte col) {
 }
 
 boolean isPressed (const C16Key k) {
-	const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];	// FIXME: Check bounds
-	return matrix[pos.row][pos.col] != 0;
+	if (static_cast<byte> (k) > N_PHYSICAL_KEYS) {
+		return false;
+	} else {
+		const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];
+		return matrix[pos.row][pos.col] != 0;
+	}
 }
 
 void updateLighting () {
@@ -357,7 +361,7 @@ void setup () {
 		}
 	}
 
-	// Start with normali keyboard scanner...
+	// Start with normal keyboard scanner...
 	kbdScanner = &kbdScannerC16;
 	DDRB  = 0x00;   // Output port: all inputs...
 	PORTB = 0xFF;   // ... with pull-ups
