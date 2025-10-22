@@ -6,8 +6,6 @@
 
 Mechware16 is the firmware for the [MechBoard16](https://github.com/SukkoPera/MechBoard16) project.
 
-![Bracket](https://raw.githubusercontent.com/SukkoPera/Mechware16/master/img/render.png)
-
 ## Summary
 The firmware was written from scratch for the project, even though it incorporates bits and pieces from other private projects of mine.
 
