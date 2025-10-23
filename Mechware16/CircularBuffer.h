@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 SukkoPera <software@sukkology.net>
+ * Copyright (c) 2024 SukkoPera <software@sukkology.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
