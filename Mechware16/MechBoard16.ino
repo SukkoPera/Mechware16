@@ -454,11 +454,6 @@ void loop () {
 			}
 		}
 	}
-	
-	//~ digitalWrite (PIN_LED_R, HIGH);
-	//~ delay (1000);
-	//~ digitalWrite (PIN_LED_R, LOW);
-	//~ delay (1000);
 
 	static unsigned long lastKeyboardScanTime = 0;
 	

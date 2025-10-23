@@ -23,45 +23,19 @@
 
 /******************************************************************************/
 
-/** \brief Abstract output port for matrix scanning (Parent class)
- * 
- * Output ports provide the ability to set all their lines to inputs with
- * pull-ups and to set one line at a time low. Then, by reading the
- * corresponding #AbstractInputPort we can deduce the state of every key in the
- * matrix.
- */
-//~ class AbstractOutputPort {
-//~ public:
-	//~ /** \brief Initialize the port
-	 //~ * 
-	 //~ * This shall set all lines to pulled-up inputs (possibly with a call to
-	 //~ * #clearAllBits()), at least.
-	 //~ */
-	//~ virtual void begin () = 0;
-	
-	//~ /** \brief Bring a single line low
-	 //~ * 
-	 //~ * \param[in] n The line to bring low
-	 //~ */
-	//~ virtual void setBit (byte n) = 0;
-
-	//~ //! \brief Set all lines to pulled-up inputs
-	//~ virtual void clearAllBits () = 0;
-//~ };
-
 /** \brief Abstract output port for matrix scanning (Template class)
  * 
  * This is just syntactic sugar that will allow us to use template
  * specialization.
  */
 template <byte NBITS>
-class OutputPort	/*: public AbstractOutputPort*/ {	// Inheritance is not needed, we rely on template specialization
+class OutputPort {	// Inheritance is not needed, we rely on template specialization
 	// Do not implement anything, so compilation will fail if this is actually instantiated (it is not supposed to be!)
 };
 
 //! \brief 8-bit output port for matrix scanning
 template <>
-class OutputPort<8>	/*: public AbstractOutputPort */ {
+class OutputPort<8>	{
 public:
 	void begin () {
 		clearAllBits ();
@@ -82,13 +56,7 @@ public:
 
 template <byte NBITS, typename RTYPE>
 class InputPort {
-	// Same as above, not supposed to be instantiated but specializations shall implement the following
-//~ public:
-	//~ static const byte size = NBITS;
-	
-	//~ void begin () = 0;
-	
-	//~ RTYPE read () = 0;
+	// Same as above, not supposed to be instantiated
 };
 
 /** \brief 8-bit input port for matrix scanning

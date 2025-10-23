@@ -73,11 +73,6 @@ boolean KbdScannerPassive16::begin () {
 	// TODO: Clear pending interrupt flag?
 	interrupts ();
 
-	// TODO
-	//~ // Do an initial read we can provide mapper.begin() with
-	//~ while (scanMatrix () != SCAN_COMPLETE)
-		//~ ;
-
 	return mapper.begin (matrix);
 }
 
@@ -85,45 +80,6 @@ boolean KbdScannerPassive16::end () {
 	PCICR &= ~(1 << PCIE0);		// Disable pin-change interrupts
 	return true;
 }
-
-
-
-//~ /* This function scans the entire keyboard, debounces the keys, and
- //~ * if a key change has been found, a new report is generated, and the
- //~ * function returns true to signal the transfer of the report
- //~ */
-//~ ScanStatus KbdScannerPassive16::scanMatrix () {
-	//~ ScanStatus scanStatus = SCAN_IN_PROGRESS;
-
-	//~ /* Scan all rows */
-	//~ for (byte row = 0; row < NUMROWS; ++row) {
-		//~ // Set a single row to ground
-		//~ outPort.setBit (row);
-		
-		//~ // Wait for things to settle and then read column output
-		//~ delayMicroseconds (30);
-		//~ TYPECOLS data = inPort.read ();
-
-		//~ // If a change was detected, activate debounce counter
-		//~ if (matrix[row] != data) {
-			//~ debounce = DEBOUNCE_LENGTH; 
-		//~ }
-
-		//~ // Store the result
-		//~ matrix[row] = data; 
-	//~ }
-	//~ outPort.clearAllBits ();
-
-	//~ // Count down, but avoid underflow
-	//~ if (debounce > 1) {
-		//~ debounce--;
-	//~ } else {
-		//~ // Readings are stable
-		//~ scanStatus = SCAN_COMPLETE;
-	//~ }
-
-	//~ return scanStatus;
-//~ }
 
 // TODO: Debouncing?
 void KbdScannerPassive16::loop () {
