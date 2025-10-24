@@ -6,7 +6,7 @@
  * | |  | |  __/ (__| | | | |_/ / (_) | (_| | | | (_| |_| |_| \_/ |
  * \_|  |_/\___|\___|_| |_\____/ \___/ \__,_|_|  \__,_|\___/\_____/
 * 
- * Copyright (c) 2024 SukkoPera <software@sukkology.net>
+ * Copyright (c) 2024-2025 SukkoPera <software@sukkology.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
