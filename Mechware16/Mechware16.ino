@@ -13,7 +13,27 @@
 
 #include <Arduino.h>
 
-unsigned long DELAY_TIME = 35;
+constexpr byte PIN_LED_R = A5;
+constexpr byte PIN_LED_G = A4;
+constexpr byte PIN_LED_B = A3;
+constexpr byte PIN_MAX7221_SEL = A2;
+constexpr byte PIN_MAX7221_DATA = A1;
+constexpr byte PIN_MAX7221_CLK = A0;
+constexpr byte PIN_RESET = 5;
+
+// TODO: Make another KeyboardScanner with this stuff
+/** \brief Number of rows in the C16/Plus4 keyboard matrix
+ */
+constexpr byte MATRIX_ROWS = 8;
+
+/** \brief Number of columns in the C16/Plus4 keyboard matrix
+ */
+constexpr byte MATRIX_COLS = 8;
+
+#include "LedControl.h"
+LedControl lc (PIN_MAX7221_DATA, PIN_MAX7221_CLK, PIN_MAX7221_SEL, 1 /* Number of MAX72xx chips */);
+
+//~ unsigned long DELAY_TIME = 35;
 
 #include "KbdScannerC16.h"
 KbdScannerC16 kbdScannerC16;
@@ -53,6 +73,13 @@ Animation *animations[N_ANIMATIONS] = {
 	&animationScrollingColumn
 };
 
+#include "OCPin.h"
+OpenCollectorPin<PIN_RESET> reset;
+constexpr unsigned long RESET_LENGTH_MS = 200;
+
+#include "ClockGenerator.h"
+ClockGenerator clockGenerator;
+
 #include "common.h"
 #include "logo.h"
 #include "C16Key.h"
@@ -71,6 +98,8 @@ Mode mode = Mode::PRESSED_OFF;
 byte animationId = 0;
 
 byte brightness = MAX_BRIGHTNESS;
+
+Clock clock = Clock::PAL;
 //! @}
 
 /*******************************************************************************
@@ -84,6 +113,7 @@ Logging Log;
 constexpr word EEP_ANIMATION = 0x100;
 constexpr word EEP_MODE = 0x101;
 constexpr word EEP_BRIGHTNESS = 0x102;
+constexpr word EEP_CLOCK = 0x103;
 
 #include <avr/pgmspace.h>
 
@@ -173,7 +203,7 @@ void updateLighting () {
 void onSetMode (const Mode newMode) {
 	if (newMode != mode) {
 		Log.debug (F("Setting mode %d\n"), static_cast<int> (newMode));
-		
+
 		mode = newMode;
 		EEPROM.write (EEP_MODE, static_cast<byte> (mode));
 		updateLighting ();
@@ -183,7 +213,7 @@ void onSetMode (const Mode newMode) {
 void onSetAnimation (const int newAnimation) {
 	if (newAnimation != animationId) {
 		Log.debug (F("Setting animation %d\n"), static_cast<int> (newAnimation));
-		
+
 		animationId = newAnimation;
 		EEPROM.write (EEP_ANIMATION, static_cast<byte> (animationId));
 	}
@@ -196,6 +226,22 @@ void onSetBrightness (const int8_t diff) {
 		EEPROM.write (EEP_BRIGHTNESS, static_cast<byte> (brightness));
 		ledController.setBrightness (brightness);
 		Log.debug (F("Brightness set to %d\n"), static_cast<int> (brightness));
+	}
+}
+
+void onReset () {
+	reset.low ();
+	delay (RESET_LENGTH_MS);
+	reset.high ();
+}
+
+void onSetClock (const Clock newClock) {
+	if (newClock != clock) {
+		Log.debug (F("Setting clock %d\n"), static_cast<int> (newClock));
+
+		clock = newClock;
+		EEPROM.write (EEP_CLOCK, static_cast<byte> (clock));
+		clockGenerator.setClock (newClock);
 	}
 }
 
@@ -292,6 +338,15 @@ void setup () {
 
 	Log.info (F("Built on %s %s\n"), __DATE__, __TIME__);
 
+	byte c = EEPROM.read (EEP_CLOCK);
+	if (c <= static_cast<byte> (Clock::NTSC)) {
+		clock = static_cast<Clock> (c);
+	} else {
+		// Default clock
+		clock = Clock::PAL;
+	}
+	clockGenerator.begin (clock);
+
 	// R/G/B LED pins: configure as OUTPUTs and turn on
 	pinMode (PIN_LED_R, OUTPUT);
 	digitalWrite (PIN_LED_R, HIGH);
@@ -387,38 +442,56 @@ void setup () {
 
 void loop () {
 	static C16Key lastCombo = C16Key::NONE;
-	
+
 	// Check combos
 	if (isPressed (C16Key::CMD) && isPressed (C16Key::CTRL)) {
 		if (lastCombo == C16Key::NONE || !isPressed (lastCombo)) {		// Poor way to avoid key repetitions
 			if (isPressed (C16Key::F1)) {
 				onSetMode (Mode::ALWAYS_OFF);
+				lastCombo = C16Key::F1;
 			} else if (isPressed (C16Key::F2)) {
 				onSetMode (Mode::ALWAYS_ON);
+				lastCombo = C16Key::F2;
 			} else if (isPressed (C16Key::F3)) {
 				onSetMode (Mode::PRESSED_ON);
+				lastCombo = C16Key::F3;
 			} else if (isPressed (C16Key::HELP)) {
 				onSetMode (Mode::PRESSED_OFF);
+				lastCombo = C16Key::HELP;
 			} else if (isPressed (C16Key::_1)) {
-				onSetAnimation (0);						
+				onSetAnimation (0);
+				lastCombo = C16Key::_1;
 			} else if (isPressed (C16Key::_2)) {
 				onSetAnimation (1);
+				lastCombo = C16Key::_2;
 			} else if (isPressed (C16Key::PLUS)) {
 				onSetBrightness (+1);
 				lastCombo = C16Key::PLUS;
 			} else if (isPressed (C16Key::MINUS)) {
 				onSetBrightness (-1);
 				lastCombo = C16Key::MINUS;
-			} else if (isPressed (C16Key::RUNSTOP)) {
-				// TODO: RESET
+			} else if (isPressed (C16Key::P)) {
+				onSetClock (Clock::PAL);
+				lastCombo = C16Key::P;
+			} else if (isPressed (C16Key::N)) {
+				onSetClock (Clock::NTSC);
+				lastCombo = C16Key::N;
+			} else if (isPressed (C16Key::DEL)) {
+				onReset ();
+				lastCombo = C16Key::DEL;		// FIXME: HOLD UNTIL PRESSED?
 			} else {
 				lastCombo = C16Key::NONE;
 			}
 		}
 	}
 
+	//~ digitalWrite (PIN_LED_R, HIGH);
+	//~ delay (1000);
+	//~ digitalWrite (PIN_LED_R, LOW);
+	//~ delay (1000);
+
 	static unsigned long lastKeyboardScanTime = 0;
-	
+
 	// Let the scanner do its own housekeeping as often as possible
 	kbdScanner -> loop ();
 
@@ -438,7 +511,7 @@ void loop () {
 			leds & USBLED_NUM_LOCK,
 			leds & USBLED_SCROLL_LOCK
 		);
-			
+
 		lastKeyboardScanTime = millis ();
 	}
 }
