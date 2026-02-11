@@ -249,10 +249,10 @@ void onSetMode (const Mode newMode) {
 
 void onSetAnimation (const int newAnimation) {
 	if (newAnimation != animationId) {
-		Log.info (F("Setting animation %d\n"), static_cast<int> (newAnimation));
+		Log.info (F("Setting animation %d\n"), newAnimation);
 
 		animationId = newAnimation;
-		EEPROM.write (EEP_ANIMATION, static_cast<byte> (animationId));
+		EEPROM.write (EEP_ANIMATION, animationId);
 	}
 }
 
@@ -260,7 +260,7 @@ void onSetBrightness (const int8_t diff) {
 	int newBrightness = brightness + diff;
 	if (newBrightness >= MIN_BRIGHTNESS && newBrightness <= MAX_BRIGHTNESS) {
 		brightness = static_cast<byte> (newBrightness);
-		EEPROM.write (EEP_BRIGHTNESS, static_cast<byte> (brightness));
+		EEPROM.write (EEP_BRIGHTNESS, brightness);
 		ledController.setBrightness (brightness);
 		Log.info (F("Brightness set to %d\n"), static_cast<int> (brightness));
 	}
@@ -268,13 +268,14 @@ void onSetBrightness (const int8_t diff) {
 
 void onReset () {
 	Log.info (F("Resetting\n"));
+
 	reset.low ();
 	delay (RESET_LENGTH_MS);
 	reset.high ();
 }
 
 void onSetMachineConfiguration (const byte newConfiguration) {
-	if (/*newConfiguration != configuration && */newConfiguration < MACHINE_SETTINGS_NO) {
+	if (newConfiguration != configuration && newConfiguration < MACHINE_SETTINGS_NO) {
 		Log.info (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
 		const MachineSettings& settings = machineSettings[newConfiguration];
 
@@ -288,8 +289,10 @@ void onSetMachineConfiguration (const byte newConfiguration) {
 		SoftPWMSet (PIN_LED_G, settings.color.g);
 		SoftPWMSet (PIN_LED_B, settings.color.b);
 
+		onReset ();
+
 		configuration = newConfiguration;
-		EEPROM.write (EEP_CONFIGURATION, static_cast<byte> (configuration));
+		EEPROM.write (EEP_CONFIGURATION, configuration);
 	}
 }
 

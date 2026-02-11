@@ -82,9 +82,6 @@ const unsigned long KEYBOARD_SCAN_INTERVAL_MS = 15;
 
 /*! \brief Retry failed key presses/releases
  *
- * Enabling this can cause a mess, as if a key isn't mapped in the current
- * layout, keypresses will fail and the code will loop indefinitely. No point in
- * enabling this at the moment.
  */
 #define PEDANTIC_PRESS_RELEASE_CHECKS
 

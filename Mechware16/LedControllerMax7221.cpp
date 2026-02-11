@@ -57,7 +57,6 @@ boolean LedControllerMax7221::buildLedCoordinates () {
         for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
             for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
                 if (keyMap.getKey(row, col) == key) {
-                // if (pgm_read_byte (&KEYMAP[row][col]) == i) {
                     /* The led matrix was supposed to be the same as the keyboard matrix. I don't know whether I made a
                      * wiring mistake or if LedControl numbers things differently, but it turns out we need to swap the
                      * coordinates and modify them slightly in order to use them with lc.setLed().
