@@ -217,16 +217,17 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 	for (byte r = 0; r < MATRIX_ROWS; ++r) {
 		for (byte c = 0; c < MATRIX_COLS; ++c) {
 			Key& usbKeycode = matrix[r][c];
-			if (newBuf.find (usbKeycode, eventKeyCompare) < 0) {
+			if (usbKeycode != 0 && newBuf.find (usbKeycode, eventKeyCompare) < 0) {
 				// Key released
-				const C16Key k = keyMap.getKey(r, c);
+				const C16Key k = keyMap.getKey (r, c);
 				Log.debug (F("Key released: %s\n"), keyMap.getKeyName (k));
 				Log.trace (F("USB Key released: %X\n"), (int) usbKeycode);
-				onKeyReleased (k);			// Call this now, before we alter i
+				onKeyReleased (k);
 				boolean ok = usbKeyboard.release (usbKeycode);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 				if (ok) {
 #endif
+					// Mark as released
 					usbKeycode = 0;		// It's a reference so this works :)
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 				} else {
@@ -244,7 +245,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 		const KeyEvent& evt = newBuf[i];
 		if (matrix[evt.row][evt.col] != evt.key) {
 			// New key pressed
-			const C16Key k = keyMap.getKey(evt.row, evt.col);
+			const C16Key k = keyMap.getKey (evt.row, evt.col);
 			Log.debug (F("Key pressed: %s\n"), keyMap.getKeyName (k));
 			Log.trace (F("USB Key pressed: %X\n"), (int) evt.key);
 			onKeyPressed (k);
@@ -252,6 +253,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			if (ok) {
 #endif
+				// Mark as pressed
 				matrix[evt.row][evt.col] = evt.key;
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			} else {
@@ -270,7 +272,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 }
 
 void setup () {
-#if !defined (DISABLE_LOGGING) || defined (ENABLE_SERIAL_COMMANDS)
+#ifndef DISABLE_LOGGING
 	Serial.begin (115200);
 #ifdef ENABLE_DEVELOPER_MODE
 	while (!Serial)

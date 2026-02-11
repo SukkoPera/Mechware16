@@ -33,7 +33,7 @@ boolean LedControllerMax7221::begin () {
 void LedControllerMax7221::setLedForKey (C16Key key, bool on) {
     if (key != C16Key::NONE) {
         const MatrixCoordinates& pos = ledCoordinates[static_cast<byte> (key)];
-        lc.setLed (0, pos.row, pos.col, true);
+        lc.setLed (0, pos.row, pos.col, on);
     }
 }
 

@@ -33,7 +33,7 @@
  * 
  * This also reduces the project size.
  */
-#define DISABLE_LOGGING
+// #define DISABLE_LOGGING
 
 /** \def THRESHOLD_LEVEL
  *
