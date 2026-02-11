@@ -22,15 +22,3 @@ struct MatrixCoordinates {
 	byte row;
 	byte col;
 };
-
-// TODO: Probably not the best place for these extern declarations
-
-/* Maps a key to the (row, col) tuple that controls its led.
- * Built by buildLedCoordinates().
- */
-extern MatrixCoordinates ledCoordinates[N_PHYSICAL_KEYS];
-
-/* Maps a key to the (row, col) tuple describing its position in the keyboard matrix, useful for quick lookups.
- * Built by buildKeyCoordinates().
- */
-extern MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];

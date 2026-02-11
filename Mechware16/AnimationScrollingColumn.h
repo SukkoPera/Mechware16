@@ -26,6 +26,5 @@ public:
 private:
 	LedController* lc;
 
-	byte i;
-	byte j;
+	byte currentCol;
 };

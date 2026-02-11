@@ -90,10 +90,7 @@ constexpr word EEP_BRIGHTNESS = 0x102;
 #include "keymap.h"
 #include "MatrixCoordinates.h"
 
-/* Maps a key to the (row, col) tuple describing its position in the keyboard matrix, useful for quick lookups.
- * Built by buildKeyCoordinates().
- */
-MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
+KeyMap keyMap;
 
 /** \brief Keyboard matrix status
  *
@@ -101,46 +98,6 @@ MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
  * OK).
  */
 Key matrix[MATRIX_ROWS][MATRIX_COLS];
-
-// Only useful for debugging
-//~ constexpr char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
-	//~ {"DEL", "RET", "£",   "HLP", "F1",  "F2", "F3", "@"},
-	//~ {"3",   "W",   "A",   "4",   "Z",   "S",  "E",  "SHF"},
-	//~ {"5",   "R",   "D",   "6",   "C",   "F",  "T",  "X"},
-	//~ {"7",   "Y",   "G",   "8",   "B",   "H",  "U",  "V"},
-	//~ {"9",   "I",   "J",   "0",   "M",   "K",  "O",  "N"},
-	//~ {"DN",  "P",   "L",   "UP",  ".",   ":",  "-",  ","},
-	//~ {"LF",  "*",   ";",   "RT",  "ESC", "=",  "+",  "/"},
-	//~ {"1",   "CLR", "CTL", "2",   "SPC", "C=", "Q",  "RUN"}
-//~ };
-
-// Populates the keyCoordinates array
-boolean buildKeyCoordinates () {
-	bool found;
-	
-	for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {
-		found = false;
-		for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
-			for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
-				if (pgm_read_byte (&KEYMAP[row][col]) == i) {
-					keyCoordinates[i].row = row;
-					keyCoordinates[i].col = col;
-					found = true;
-				}
-			}
-		}
-
-		if (!found) {
-			break;
-		}
-	}
-
-	return found;
-}
-
-inline const MatrixCoordinates& getMatrixCoordinates (const C16Key key) {
-	return ledCoordinates[static_cast<byte> (key)];
-}
 
 // Called when a keypress is detected
 void onKeyPressed (const C16Key k) {
@@ -178,7 +135,7 @@ boolean isPressed (const C16Key k) {
 	if (static_cast<byte> (k) > N_PHYSICAL_KEYS) {
 		return false;
 	} else {
-		const MatrixCoordinates pos = keyCoordinates[static_cast<byte> (k)];
+		const MatrixCoordinates pos = keyMap.getCoordinates (k);
 		return matrix[pos.row][pos.col] != 0;
 	}
 }
@@ -188,25 +145,25 @@ void updateLighting () {
 	switch (mode) {
 		case Mode::ALWAYS_ON:
 			// Turn all leds on
-			ledController.setAllLeds(true);
+			ledController.setAllLeds (true);
 			break;
 		case Mode::PRESSED_OFF:
 			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				for (byte col = 0; col < MATRIX_COLS; ++col) {
-					const C16Key k = getKey(row, col);
-					ledController.setLedForKey(k, matrix[row][col] != 0 ? false : true);
+					const C16Key k = keyMap.getKey (row, col);
+					ledController.setLedForKey (k, matrix[row][col] != 0 ? false : true);
 				}
 			}
 			break;
 		case Mode::ALWAYS_OFF:
 			// Turn all leds off
-			ledController.setAllLeds(false);
+			ledController.setAllLeds (false);
 			break;
 		case Mode::PRESSED_ON:
 			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				for (byte col = 0; col < MATRIX_COLS; ++col) {
-					const C16Key k = getKey(row, col);
-					ledController.setLedForKey(k, matrix[row][col] != 0 ? true : false);
+					const C16Key k = keyMap.getKey (row, col);
+					ledController.setLedForKey (k, matrix[row][col] != 0 ? true : false);
 				}
 			}
 			break;
@@ -262,7 +219,8 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 			Key& usbKeycode = matrix[r][c];
 			if (newBuf.find (usbKeycode, eventKeyCompare) < 0) {
 				// Key released
-				const C16Key k = getKey(r, c);
+				const C16Key k = keyMap.getKey(r, c);
+				Log.debug (F("Key released: %s\n"), keyMap.getKeyName (k));
 				Log.trace (F("USB Key released: %X\n"), (int) usbKeycode);
 				onKeyReleased (k);			// Call this now, before we alter i
 				boolean ok = usbKeyboard.release (usbKeycode);
@@ -286,7 +244,8 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 		const KeyEvent& evt = newBuf[i];
 		if (matrix[evt.row][evt.col] != evt.key) {
 			// New key pressed
-			const C16Key k = getKey(evt.row, evt.col);
+			const C16Key k = keyMap.getKey(evt.row, evt.col);
+			Log.debug (F("Key pressed: %s\n"), keyMap.getKeyName (k));
 			Log.trace (F("USB Key pressed: %X\n"), (int) evt.key);
 			onKeyPressed (k);
 			boolean ok = usbKeyboard.press (evt.key);
@@ -342,7 +301,7 @@ void setup () {
 	/* Wake up and configure the led controller ASAP, since it might show a random pattern at startup, and build the
 	 * required coordinates array
 	 */
-	if (!ledController.begin () || !buildKeyCoordinates ()) {
+	if (!ledController.begin () || !keyMap.begin ()) {
 		Log.error (F("Unable to build the LED coordinates array, this indicates a mistake in the code\n"));
 
 		// Hang with fast blinking

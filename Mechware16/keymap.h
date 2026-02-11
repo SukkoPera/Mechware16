@@ -15,10 +15,35 @@
 
 #include "common.h"
 #include "C16Key.h"
+#include "MatrixCoordinates.h"
 
-extern const C16Key KEYMAP[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
+class KeyMap {
+public:
+    KeyMap () = default;
+    ~KeyMap () = default;
 
-inline C16Key getKey (const byte row, const byte col) {
-    const byte k = pgm_read_byte (&KEYMAP[row][col]);
-    return static_cast<C16Key> (k);
-}
+    boolean begin ();
+
+    C16Key getKey (byte row, byte col) const;
+
+    const char* getKeyName (C16Key key) const;
+
+    MatrixCoordinates getCoordinates (C16Key key) const;
+
+private:
+    static const C16Key KEYMAP[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
+
+    static const char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4];
+
+    /** \brief Map a key to the (row, col) tuple describing its position in the keyboard matrix
+     *
+     * Useful for quick lookups.
+     *
+     * Built by buildKeyCoordinates().
+     */
+    MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
+
+    /** \brief Populate the keyCoordinates array
+     */
+    boolean buildKeyCoordinates ();
+};
