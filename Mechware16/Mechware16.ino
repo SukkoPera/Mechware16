@@ -103,10 +103,10 @@ Key matrix[MATRIX_ROWS][MATRIX_COLS];
 void onKeyPressed (const C16Key k) {
 	switch (mode) {
 		case Mode::PRESSED_ON:
-			ledController.setLedForKey(k, true);
+			ledController.setLedForKey (k, true);
 			break;
 		case Mode::PRESSED_OFF:
-			ledController.setLedForKey(k, false);
+			ledController.setLedForKey (k, false);
 			break;
 		case Mode::ALWAYS_ON:
 		case Mode::ALWAYS_OFF:
@@ -119,10 +119,10 @@ void onKeyPressed (const C16Key k) {
 void onKeyReleased (const C16Key k) {
 	switch (mode) {
 		case Mode::PRESSED_ON:
-			ledController.setLedForKey(k, false);
+			ledController.setLedForKey (k, false);
 			break;
 		case Mode::PRESSED_OFF:
-			ledController.setLedForKey(k, true);
+			ledController.setLedForKey (k, true);
 			break;
 		case Mode::ALWAYS_ON:
 		case Mode::ALWAYS_OFF:
@@ -194,7 +194,7 @@ void onSetBrightness (const int8_t diff) {
 	if (newBrightness >= MIN_BRIGHTNESS && newBrightness <= MAX_BRIGHTNESS) {
 		brightness = static_cast<byte> (newBrightness);
 		EEPROM.write (EEP_BRIGHTNESS, static_cast<byte> (brightness));
-		ledController.setBrightness(brightness);
+		ledController.setBrightness (brightness);
 		Log.debug (F("Brightness set to %d\n"), static_cast<int> (brightness));
 	}
 }
