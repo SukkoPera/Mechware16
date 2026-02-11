@@ -30,8 +30,8 @@ KeyboardScanner *kbdScanner;
 #include "UsbKeyboard.h"
 UsbKeyboard usbKeyboard;
 
-#include "LedController.h"
-SimpleLedController simpleLedController;
+#include "LedControllerMax7221.h"
+LedControllerMax7221 simpleLedController;
 LedController& ledController = simpleLedController;
 
 #include "AnimationChasing.h"

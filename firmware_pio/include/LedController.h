@@ -34,27 +34,3 @@ public:
     // 0-15
     virtual void setBrightness(byte brightness) = 0;
 };
-
-class SimpleLedController: public LedController {
-public:
-    SimpleLedController();
-    ~SimpleLedController() = default;
-
-    boolean begin() override;
-
-    void setLedForKey(C16Key key, bool on) override;
-
-    void setAllLeds(bool on) override;
-
-    void setBrightness(byte brightness) override;
-
-private:
-    /* Maps a key to the (row, col) tuple that controls its led.
-     * Built by buildLedCoordinates().
-     */
-    MatrixCoordinates ledCoordinates[N_PHYSICAL_KEYS];
-
-    LedControl lc;
-
-    boolean buildLedCoordinates ();
-};
