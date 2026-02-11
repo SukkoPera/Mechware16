@@ -20,7 +20,7 @@
 #include "MatrixCoordinates.h"
 
 //! Order in which keys appear on the keyboard (+1 for 2 Shifts)
-constexpr C16Key splash_order[N_PHYSICAL_KEYS + 1] PROGMEM = {
+constexpr C16Key LED_ORDER[N_PHYSICAL_KEYS + 1] PROGMEM = {
 	C16Key::ESC, C16Key::_1, C16Key::_2, C16Key::_3, C16Key::_4, C16Key::_5, C16Key::_6, C16Key::_7, C16Key::_8, C16Key::_9, C16Key::_0, C16Key::LEFT, C16Key::RIGHT, C16Key::UP, C16Key::DOWN, C16Key::DEL,
 	C16Key::CTRL, C16Key::Q, C16Key::W, C16Key::E, C16Key::R, C16Key::T, C16Key::Y, C16Key::U, C16Key::I, C16Key::O, C16Key::P, C16Key::AT, C16Key::PLUS, C16Key::MINUS, C16Key::CLEAR,
 	C16Key::RUNSTOP, /* Shift Lock */ C16Key::A, C16Key::S, C16Key::D, C16Key::F, C16Key::G, C16Key::H, C16Key::J, C16Key::K, C16Key::L, C16Key::COLON, C16Key::SEMICOLON, C16Key::ASTERISK, C16Key::RETURN,
@@ -36,13 +36,13 @@ void AnimationChasing::begin (LedController& lc_) {
 
 boolean AnimationChasing::step () {
 	for (byte j = 0; j < 3; ++j) {
-		const C16Key k = static_cast<C16Key> (pgm_read_byte (&(splash_order[i + j])));
+		const C16Key k = static_cast<C16Key> (pgm_read_byte (&(LED_ORDER[i + j])));
 		lc -> setLedForKey (k, true);
 	}
 	
 	delay (40);
 
-	const C16Key k = static_cast<C16Key> (pgm_read_byte (&(splash_order[i])));
+	const C16Key k = static_cast<C16Key> (pgm_read_byte (&(LED_ORDER[i])));
 	lc -> setLedForKey (k, false);
 
 	return ++i < N_PHYSICAL_KEYS + 1;

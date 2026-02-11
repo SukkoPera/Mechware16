@@ -14,9 +14,6 @@
 #pragma once
 
 #include "C16Key.h"
-#include "MatrixCoordinates.h"
-
-#include <LedControl.h>
 
 class LedController {
 public:

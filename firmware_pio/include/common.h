@@ -14,13 +14,20 @@
 #pragma once
 
 #include <Arduino.h>
+#include "config.h"
 
 constexpr byte PIN_LED_R = A5;
 constexpr byte PIN_LED_G = A4;
 constexpr byte PIN_LED_B = A3;
+
+#ifdef ENABLE_LEDCONTROLLER_MAX7221
 constexpr byte PIN_MAX7221_SEL = A2;
 constexpr byte PIN_MAX7221_DATA = A1;
 constexpr byte PIN_MAX7221_CLK = A0;
+#elif defined(ENABLE_LEDCONTROLLER_NEOPIXEL)
+constexpr byte PIN_LEDSTRIP = A2;   // FIXME
+constexpr byte LEDSTRIP_LEN = 68;   // FIXME
+#endif
 
 // TODO: Make another KeyboardScanner with this stuff
 /** \brief Number of rows in the C16/Plus4 keyboard matrix

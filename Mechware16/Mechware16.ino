@@ -30,9 +30,15 @@ KeyboardScanner *kbdScanner;
 #include "UsbKeyboard.h"
 UsbKeyboard usbKeyboard;
 
+#ifdef ENABLE_LEDCONTROLLER_MAX7221
 #include "LedControllerMax7221.h"
-LedControllerMax7221 simpleLedController;
-LedController& ledController = simpleLedController;
+LedControllerMax7221 ledControllerMax7221;
+LedController& ledController = ledControllerMax7221;
+#elif defined(ENABLE_LEDCONTROLLER_NEOPIXEL)
+#include "LedControllerNeoPixel.h"
+LedControllerNeoPixel ledControllerNeoPixel;
+LedController& ledController = ledControllerNeoPixel;
+#endif
 
 #include "AnimationChasing.h"
 AnimationChasing animationChasing;
