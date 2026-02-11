@@ -45,6 +45,8 @@ typedef void (*printfunction)(Print*);
 #define LOG_LEVEL_DEBUG   5
 #define LOG_LEVEL_TRACE   6
 
+#define LOG_LEVEL_ENABLED(x) (!defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= x))
+
 typedef int DebugLevel;
 
 #define L_CR "\n"
@@ -227,7 +229,7 @@ public:
    */
   template <class T, typename... Args> void fatal(T msg, Args... args)
   {
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= LOG_LEVEL_FATAL)
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_FATAL)
     printLevel(LOG_LEVEL_FATAL, msg, args...);
 #endif
   }
@@ -243,7 +245,7 @@ public:
    * \return void
    */
   template <class T, typename... Args> void error(T msg, Args... args){
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= LOG_LEVEL_ERROR)
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_ERROR)
     printLevel(LOG_LEVEL_ERROR, msg, args...);
 #else
 	(void) msg;
@@ -263,7 +265,7 @@ public:
    */
   template <class T, typename... Args> void warn(T msg, Args...args)
   {
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= LOG_LEVEL_WARN)
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_WARN)
     printLevel(LOG_LEVEL_WARN, msg, args...);
 #else
 	(void) msg;
@@ -283,7 +285,7 @@ public:
    */
   template <class T, typename... Args> void info(T msg, Args...args)
   {
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= LOG_LEVEL_INFO)
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_INFO)
     printLevel(LOG_LEVEL_INFO, msg, args...);
 #else
 	(void) msg;
@@ -303,7 +305,7 @@ public:
   */
   template <class T, typename... Args> void debug(T msg, Args... args)
   {
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= LOG_LEVEL_DEBUG)
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_DEBUG)
     printLevel(LOG_LEVEL_DEBUG, msg, args...);
 #else
 	(void) msg;
@@ -323,7 +325,7 @@ public:
    */
   template <class T, typename... Args> void trace(T msg, Args... args)
   {
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= LOG_LEVEL_TRACE)
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_TRACE)
     printLevel(LOG_LEVEL_TRACE, msg, args...);
 #else
 	(void) msg;
@@ -340,7 +342,7 @@ public:
    */
   template <class T, typename... Args> void log(DebugLevel level, T msg, Args... args)
   {
-#if !defined (DISABLE_LOGGING) && (!defined (THRESHOLD_LEVEL) || THRESHOLD_LEVEL >= level)
+#if LOG_LEVEL_ENABLED (level)
     printLevel(level, msg, args...);
 #else
 	(void) level;
@@ -525,5 +527,4 @@ private:
 #endif
 };
 
-extern Logging Log;
 #endif

@@ -32,7 +32,6 @@ constexpr byte PIN_LEDSTRIP = A2;   // FIXME
 constexpr byte LEDSTRIP_LEN = 68;   // FIXME
 #endif
 
-// TODO: Make another KeyboardScanner with this stuff
 /** \brief Number of rows in the C16/Plus4 keyboard matrix
  */
 constexpr byte MATRIX_ROWS = 8;

@@ -74,15 +74,19 @@ public:
 		return BootKeyboard.send ();
 	}
 
-	static boolean keyNeedsShift (uint16_t k) {
+	static boolean keyNeedsShift (uint16_t n) {
 		boolean needed = false;
 
-		if (k < sizeof (_asciimap)) {
-			// Read key from ascii lookup table
-			uint16_t key = pgm_read_word (_asciimap + k);
-			
-			if (key & (MOD_LEFT_SHIFT | MOD_RIGHT_SHIFT)) {
-				needed = true;
+		// TODO: Check this logic
+		if (KEYPRESS_IS_ASCII (n)) {
+			uint8_t k = ASCII_EXTRACT (n);
+			if (k < sizeof (_asciimap)) {
+				// Read key from ascii lookup table
+				uint16_t key = pgm_read_word (_asciimap + k);
+
+				if (key & (MOD_LEFT_SHIFT | MOD_RIGHT_SHIFT)) {
+					needed = true;
+				}
 			}
 		}
 

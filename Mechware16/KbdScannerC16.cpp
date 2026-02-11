@@ -26,7 +26,7 @@ constexpr Key POUND_SIGN = A(163);
 constexpr Key POUND_SIGN = A(164);
 #endif
 
-constexpr Key KeyMapperC16::keymapPositional[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
+constexpr Key KeyMapperC16::keymapPositional[MATRIX_ROWS][MATRIX_COLS] = {
 	{KEY_BACKSPACE,		KEY_ENTER,			KEY_EQUAL,		KEY_F8,		KEY_F1,		KEY_F2,			KEY_F3,				KEY_LEFT_BRACE},
 	{KEY_3,				KEY_W,				KEY_A,			KEY_4,		KEY_Z,		KEY_S,			KEY_E,				KEY_LEFT_SHIFT},
 	{KEY_5,				KEY_R,				KEY_D,			KEY_6,		KEY_C,		KEY_F,			KEY_T,				KEY_X},
@@ -37,7 +37,7 @@ constexpr Key KeyMapperC16::keymapPositional[C16_MATRIX_ROWS][C16_MATRIX_COLS] =
 	{KEY_1,				KEY_HOME,			KEY_TAB,		KEY_2,		KEY_SPACE,	KEY_LEFT_CTRL,	KEY_Q,				KEY_ESC}
 };
 
-const Key KeyMapperC16::keymapSymbolic[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
+const Key KeyMapperC16::keymapSymbolic[MATRIX_ROWS][MATRIX_COLS] = {
 	{KEY_BACKSPACE,		KEY_ENTER,			POUND_SIGN,		KEY_F8,		KEY_F1,		KEY_F2,			KEY_F3,				A('@')},
 	{A('3'),			A('w'),				A('a'),			A('4'),		A('z'),		A('s'),			A('e'),				KEY_LEFT_SHIFT},
 	{A('5'),			A('r'),				A('d'),			A('6'),		A('c'),		A('f'),			A('t'),				A('x')},
@@ -48,7 +48,7 @@ const Key KeyMapperC16::keymapSymbolic[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
 	{A('1'),			KEY_HOME,			KEY_LEFT_CTRL,	A('2'),		A(' '),		KEY_LEFT_ALT,	A('q'),				KEY_TAB}
 };
 
-const Key KeyMapperC16::keymapSymbolicShifted[C16_MATRIX_ROWS][C16_MATRIX_COLS] = {
+const Key KeyMapperC16::keymapSymbolicShifted[MATRIX_ROWS][MATRIX_COLS] = {
 	{KEY_INSERT,		KEY_ENTER,			POUND_SIGN,		KEY_F7,		KEY_F4,		KEY_F5,			KEY_F6,				A('@')},
 	{A('#'),			A('W'),				A('A'),			A('$'),		A('Z'),		A('S'),			A('E'),				KEY_LEFT_SHIFT},
 	{A('%'),			A('R'),				A('D'),			A('&'),		A('C'),		A('F'),			A('T'),				A('X')},

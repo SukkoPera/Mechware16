@@ -33,10 +33,10 @@
  */
 class KbdScannerPassive16: public KeyboardScanner {
 public:
-	typedef MatrixBase<C16_MATRIX_ROWS, byte> Matrix;
+	typedef MatrixBase<MATRIX_ROWS, byte> Matrix;
 
 private:
-	InputPort<C16_MATRIX_COLS, byte> inPort;	// Columns
+	InputPort<MATRIX_COLS> inPort;	// Columns
 
 	Matrix matrix;
 
@@ -63,6 +63,6 @@ public:
 	
 	virtual void loop () override;
 	
-	virtual KeyboardScanner::ScanStatus scan (KeyBuffer& buf) override;
+	virtual ScanStatus scan (KeyBuffer& buf) override;
 };
 

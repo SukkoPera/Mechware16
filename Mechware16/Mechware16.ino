@@ -301,14 +301,15 @@ void onSetMachineConfiguration (const byte newConfiguration) {
  * \param newBuf Keys currently being pressed
  */
 void handleKeyboard (const KeyBuffer& newBuf) {
-	//~ if (newBuf.size > 0) {
-		//~ debug (F("Handling new buffer: "));
-		//~ for (byte i = 0; i < newBuf.size; ++i) {
-			//~ debug (newBuf[i] & 0xFF, HEX);
-			//~ debug (' ');
-		//~ }
-		//~ debugln (' ');
-	//~ }
+#if LOG_LEVEL_ENABLED (LOG_LEVEL_TRACE)
+	if (newBuf.size > 0) {
+		Log.debug (F("Handling new buffer:\n"));
+		for (byte i = 0; i < newBuf.size; ++i) {
+			Log.debug (F("- %X\n"), newBuf[i].key);
+		}
+		Log.debug (F("---\n"));
+	}
+#endif
 
 	// Check for keys that were just released
 	for (byte r = 0; r < MATRIX_ROWS; ++r) {
@@ -394,17 +395,17 @@ void setup () {
 	fastPinConfig (PIN_LED_G, OUTPUT, HIGH);
 	fastPinConfig (PIN_LED_B, OUTPUT, HIGH);
 	SoftPWMBegin ();
-	SoftPWMSetFadeTime (PIN_LED_R, 500, 500);
-	SoftPWMSetFadeTime (PIN_LED_G, 500, 500);
-	SoftPWMSetFadeTime (PIN_LED_B, 500, 500);
+	// SoftPWMSetFadeTime (PIN_LED_R, 500, 500);
+	// SoftPWMSetFadeTime (PIN_LED_G, 500, 500);
+	// SoftPWMSetFadeTime (PIN_LED_B, 500, 500);
 
 	// Other outputs
 	fastPinConfig (PIN_ROMSWITCH, OUTPUT, LOW);
 
 	// Apply startup machine configuration
-	byte c = EEPROM.read (EEP_CONFIGURATION);
-	if (c <= MACHINE_SETTINGS_NO) {
-		configuration = c;
+	byte cfg = EEPROM.read (EEP_CONFIGURATION);
+	if (cfg <= MACHINE_SETTINGS_NO) {
+		configuration = cfg;
 	} else {
 		// Default clock
 		configuration = 0;
@@ -498,6 +499,7 @@ void setup () {
 }
 
 void loop () {
+	static unsigned long lastKeyboardScanTime = 0;
 	static C16Key lastCombo = C16Key::NONE;
 
 	// Check combos
@@ -548,8 +550,6 @@ void loop () {
 		}
 	}
 
-	static unsigned long lastKeyboardScanTime = 0;
-
 	// Let the scanner do its own housekeeping as often as possible
 	kbdScanner -> loop ();
 
@@ -570,6 +570,7 @@ void loop () {
 			leds & USBLED_SCROLL_LOCK
 		);
 
-		lastKeyboardScanTime = millis ();
+		// lastKeyboardScanTime = millis ();
+		lastKeyboardScanTime += KEYBOARD_SCAN_INTERVAL_MS;
 	}
 }

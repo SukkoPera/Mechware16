@@ -53,7 +53,7 @@ unsigned int KbdScannerPassive16::countSetBits (int n) {
 }
 
 void KbdScannerPassive16::clearMatrix () {
-	for (byte row = 0; row < C16_MATRIX_ROWS; ++row) {
+	for (byte row = 0; row < MATRIX_ROWS; ++row) {
 		matrix[row] = 0xFF;
 	}
 }
@@ -99,7 +99,7 @@ void KbdScannerPassive16::loop () {
 			clearMatrix ();
 		} else if (countSetBits (sample.rows) == 7) {
 			// Exactly one row is cleared, find out which one and update all its columns
-			for (byte row = 0; row < C16_MATRIX_ROWS; ++row) {
+			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				if ((sample.rows & (1 << row)) == 0) {
 					matrix[row] = sample.cols;
 					break;		// There is necessarily only one row at 0

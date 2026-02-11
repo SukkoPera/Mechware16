@@ -17,22 +17,11 @@
 
 #pragma once
 
+#include "common.h"
 #include "config.h"
 #include "MatrixKeyboardScanner.h"
 #include "UsbKeyboard.h"
 #include "Log.h"
-
-/** \brief Number of rows in the C16/Plus4 keyboard matrix
- * 
- * \sa C16_MATRIX_COLS
- */
-#define C16_MATRIX_ROWS 8
-
-/** \brief Number of columns in the C16/Plus4 keyboard matrix
- * 
- * \sa C16_MATRIX_ROWS
- */
-#define C16_MATRIX_COLS 8
 
 /** \brief C16/Plus4/(Probably C116) keyboard mapper
  * 
@@ -50,7 +39,7 @@
  * This mapper works the same as the one for the C64 (#KeyMapperC64), so please
  * refer to that for any information.
  */
-class KeyMapperC16: public KeyMapper<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte> {
+class KeyMapperC16: public KeyMapper<MATRIX_ROWS, MATRIX_COLS> {
 private:
 	enum KbdMode {
 		KBD_POSITIONAL,
@@ -60,11 +49,11 @@ private:
 	KbdMode kmode;
 	
 	// C16, Positional Mapping with our own mapping settings
-	static const Key keymapPositional[C16_MATRIX_ROWS][C16_MATRIX_COLS] PROGMEM;
+	static const Key keymapPositional[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
 	
-	static const Key keymapSymbolic[C16_MATRIX_ROWS][C16_MATRIX_COLS] PROGMEM;
+	static const Key keymapSymbolic[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
 
-	static const Key keymapSymbolicShifted[C16_MATRIX_ROWS][C16_MATRIX_COLS] PROGMEM;
+	static const Key keymapSymbolicShifted[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
 	
 	KbdMode getStartupMode (const Matrix& mtx) const {
 		KbdMode md = KBD_SYMBOLIC;
@@ -89,14 +78,14 @@ public:
 				// Nothing to do
 				break;
 		}
-		return KeyMapper<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte>::begin (mtx);
+		return KeyMapper::begin (mtx);
 	}
 
 	virtual byte map (const Matrix& mtx, KeyBuffer& kbuf) override {
 		byte ret = 0;
 		
 		if (kmode == KBD_POSITIONAL) {
-			ret = KeyMapper<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte>::map (mtx, kbuf);
+			ret = KeyMapper::map (mtx, kbuf);
 		} else {
 			if ((mtx[1] & (1 << 7)) == 0) {
 				// Shift is pressed
@@ -105,7 +94,7 @@ public:
 				setKeyMap (keymapSymbolic);
 			}
 
-			ret = KeyMapper<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte>::map (mtx, kbuf);
+			ret = KeyMapper::map (mtx, kbuf);
 
 			// See if we need to remove the SHIFT key from the buffer
 			if (kbuf.size > 1 && kbuf.find (static_cast<Key> (KEY_LEFT_SHIFT), eventKeyCompare) >= 0) {

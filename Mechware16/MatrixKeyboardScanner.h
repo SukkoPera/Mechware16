@@ -19,7 +19,9 @@
 #include "config.h"
 #include "Matrix.h"
 #include "KeyboardScanner.h"
+
 #include "Log.h"
+extern Logging Log;
 
 /******************************************************************************/
 
@@ -54,7 +56,8 @@ public:
 
 /******************************************************************************/
 
-template <byte NBITS, typename RTYPE>
+
+template <byte NBITS>
 class InputPort {
 	// Same as above, not supposed to be instantiated
 };
@@ -67,8 +70,10 @@ class InputPort {
  *
  */
 template <>
-class InputPort<8, byte> {
+class InputPort<8> {
 public:
+	using ValueType = byte;
+	
 	void begin () {
 		// All inputs with pull-ups
 		PORTD = 0xFF;
@@ -86,7 +91,7 @@ public:
  * 
  * Translate a matrix scan into keypresses.
  */
-template<byte NUMROWS, byte NUMCOLS, typename TYPECOLS>
+template<byte NUMROWS, byte NUMCOLS>
 class KeyMapper {
 private:
 	/** \brief Keymap to be used
@@ -96,7 +101,8 @@ private:
 	const Key (*keymap)[NUMCOLS];
 	
 public:
-	typedef MatrixBase<NUMROWS, TYPECOLS> Matrix;
+	using TypeCols = typename InputPort<NUMCOLS>::ValueType;
+	using Matrix = MatrixBase<NUMROWS, TypeCols>;
 
 	/** \brief Initialize the KeyMapper
 	 *
@@ -130,7 +136,7 @@ public:
 		if (keymap) {
 			/* Process all rows for key-codes */
 			for (byte row = 0; row < NUMROWS; ++row) {
-				for (TYPECOLS col = 0, mask = 1; col < NUMCOLS; ++col, mask <<= 1) {
+				for (TypeCols col = 0, mask = 1; col < NUMCOLS; ++col, mask <<= 1) {
 					if ((mtx[row] & mask) == 0) {
 						/* Key pressed! Read keyboard map */
 #ifdef ENABLE_MATRIX_DEBUG
@@ -178,17 +184,16 @@ public:
  * - The resulting matrix is finally fed to a #KeyMapper, which translates it
  *   into the actual keypresses.
  */
-template<byte NUMROWS, byte NUMCOLS, typename TYPECOLS, byte DEBOUNCE_LENGTH, typename MAPPER_T>
+template<byte NUMROWS, byte NUMCOLS, byte DEBOUNCE_LENGTH, typename MAPPER_T>
 class MatrixKeyboardScanner: public KeyboardScanner {
-private:
+protected:
 	byte debounce = DEBOUNCE_LENGTH;
 
-public:
-	typedef MatrixBase<NUMROWS, TYPECOLS> Matrix;
+	using TypeCols = typename InputPort<NUMCOLS>::ValueType;
+	using Matrix = MatrixBase<NUMROWS, TypeCols>;
 
-protected:
-	OutputPort<NUMROWS> outPort;			// Rows
-	InputPort<NUMCOLS, TYPECOLS> inPort;	// Columns
+	OutputPort<NUMROWS> outPort;		// Rows
+	InputPort<NUMCOLS> inPort;			// Columns
 
 	Matrix matrix;
 
@@ -230,12 +235,12 @@ public:
 
 		/* Scan all rows */
 		for (byte row = 0; row < NUMROWS; ++row) {
-			// Set a single row to ground
+			// Set a single line of the output port to ground
 			outPort.setBit (row);
 			
 			// Wait for things to settle and then read column output
 			delayMicroseconds (30);
-			TYPECOLS data = inPort.read ();
+			TypeCols data = inPort.read ();
 
 			// If a change was detected, activate debounce counter
 			if (matrix[row] != data) {
@@ -249,7 +254,7 @@ public:
 
 		// Count down, but avoid underflow
 		if (debounce > 1) {
-			debounce--;
+			--debounce;
 		} else {
 			// Readings are stable
 			scanStatus = SCAN_COMPLETE;

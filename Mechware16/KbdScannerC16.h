@@ -21,7 +21,7 @@
 #include "MatrixKeyboardScanner.h"
 
 //! \brief C16/Plus4 keyboard scanner
-class KbdScannerC16: public MatrixKeyboardScanner<C16_MATRIX_ROWS, C16_MATRIX_COLS, byte, DEBOUNCE_FACTOR_C16, KeyMapperC16> {
+class KbdScannerC16: public MatrixKeyboardScanner<MATRIX_ROWS, MATRIX_COLS, DEBOUNCE_FACTOR_C16, KeyMapperC16> {
 public:
 
 	virtual void updateLeds (const boolean capsLock, const boolean numLock, const boolean scrollLock) override {
