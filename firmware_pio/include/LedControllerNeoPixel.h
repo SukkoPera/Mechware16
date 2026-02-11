@@ -40,7 +40,7 @@ private:
 
     Adafruit_NeoPixel pixels;
 
-    byte getPixelIndex (C16Key key) const;
+    static byte getPixelIndex (C16Key key) ;
 };
 
 #endif
