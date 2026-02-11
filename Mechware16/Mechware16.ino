@@ -239,7 +239,7 @@ void updateLighting () {
 
 void onSetMode (const Mode newMode) {
 	if (newMode != mode) {
-		Log.debug (F("Setting mode %d\n"), static_cast<int> (newMode));
+		Log.info (F("Setting mode %d\n"), static_cast<int> (newMode));
 
 		mode = newMode;
 		EEPROM.write (EEP_MODE, static_cast<byte> (mode));
@@ -249,7 +249,7 @@ void onSetMode (const Mode newMode) {
 
 void onSetAnimation (const int newAnimation) {
 	if (newAnimation != animationId) {
-		Log.debug (F("Setting animation %d\n"), static_cast<int> (newAnimation));
+		Log.info (F("Setting animation %d\n"), static_cast<int> (newAnimation));
 
 		animationId = newAnimation;
 		EEPROM.write (EEP_ANIMATION, static_cast<byte> (animationId));
@@ -262,11 +262,12 @@ void onSetBrightness (const int8_t diff) {
 		brightness = static_cast<byte> (newBrightness);
 		EEPROM.write (EEP_BRIGHTNESS, static_cast<byte> (brightness));
 		ledController.setBrightness (brightness);
-		Log.debug (F("Brightness set to %d\n"), static_cast<int> (brightness));
+		Log.info (F("Brightness set to %d\n"), static_cast<int> (brightness));
 	}
 }
 
 void onReset () {
+	Log.info (F("Resetting\n"));
 	reset.low ();
 	delay (RESET_LENGTH_MS);
 	reset.high ();
@@ -274,7 +275,7 @@ void onReset () {
 
 void onSetMachineConfiguration (const byte newConfiguration) {
 	if (/*newConfiguration != configuration && */newConfiguration < MACHINE_SETTINGS_NO) {
-		Log.debug (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
+		Log.info (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
 		const MachineSettings& settings = machineSettings[newConfiguration];
 
 		clockGenerator.setClock (0, settings.clock0);
@@ -543,11 +544,6 @@ void loop () {
 			}
 		}
 	}
-
-	//~ digitalWrite (PIN_LED_R, HIGH);
-	//~ delay (1000);
-	//~ digitalWrite (PIN_LED_R, LOW);
-	//~ delay (1000);
 
 	static unsigned long lastKeyboardScanTime = 0;
 
