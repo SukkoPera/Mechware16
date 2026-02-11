@@ -34,7 +34,7 @@ const C16Key splash0row0[splash0nCols] PROGMEM = {C16Key::NONE,    C16Key::NONE,
 constexpr C16Key const * splash0rows[N_PHYSICAL_ROWS] PROGMEM = {splash0row4, splash0row3, splash0row2, splash0row1, splash0row0};
 
 
-void AnimationScrollingColumn::begin (LedControl& lc_) {
+void AnimationScrollingColumn::begin (LedController& lc_) {
 	lc = &lc_;
 	i = 0;
 	j = 0;
@@ -44,11 +44,8 @@ boolean AnimationScrollingColumn::step () {
 	// Turn on a column...
 	for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
 		const byte* krow = pgm_read_byte (&splash0rows[j]);
-		const byte k = pgm_read_byte (&(krow[i]));
-		if (static_cast<C16Key> (k) != C16Key::NONE) {
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc -> setLed (0, pos.row, pos.col, true);
-		}
+		const C16Key k = static_cast<C16Key> (pgm_read_byte (&(krow[i])));
+		lc -> setLedForKey (k, true);
 	}
 
 	// ... wait a bit...
@@ -57,11 +54,8 @@ boolean AnimationScrollingColumn::step () {
 	// ... and turn it off
 	for (byte j = 0; j < N_PHYSICAL_ROWS; ++j) {
 		const byte* krow = pgm_read_byte (&splash0rows[j]);
-		const byte k = pgm_read_byte (&(krow[i]));
-		if (static_cast<C16Key> (k) != C16Key::NONE) {
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc -> setLed (0, pos.row, pos.col, false);
-		}
+		const C16Key k = static_cast<C16Key> (pgm_read_byte (&(krow[i])));
+		lc -> setLedForKey (k, false);
 	}
 
 	return ++i < splash0nCols;

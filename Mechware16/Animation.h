@@ -17,10 +17,13 @@
 #pragma once
 
 #include <Arduino.h>
-#include "LedControl.h"
+#include "LedController.h"
 
 class Animation {
 public:
-	virtual void begin (LedControl& lc_) = 0;
+	Animation () = default;
+	virtual ~Animation () = default;
+
+	virtual void begin (LedController& lc_) = 0;
 	virtual boolean step () = 0;
 };

@@ -18,13 +18,15 @@
 
 #include "Animation.h"
 
+class LedController;
+
 class AnimationChasing: public Animation {
 public:
-	virtual void begin (LedControl& lc_) override;
+	virtual void begin (LedController& lc_) override;
 	virtual boolean step () override;
 
 private:
-	LedControl *lc;
+	LedController* lc;
 
 	byte i;
 };

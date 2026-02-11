@@ -44,7 +44,7 @@
  * 
  * Useful to strip debug messages from releases.
  */
-#define THRESHOLD_LEVEL LOG_LEVEL_INFO
+// #define THRESHOLD_LEVEL LOG_LEVEL_INFO
 
 /** \def ENABLE_SERIAL_COMMANDS
  *

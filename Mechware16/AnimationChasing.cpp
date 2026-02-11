@@ -29,23 +29,21 @@ constexpr C16Key splash_order[N_PHYSICAL_KEYS + 1] PROGMEM = {
 	C16Key::HELP, C16Key::F3, C16Key::F2, C16Key::F1    // Reverse order just to be cool ;)
 };
 
-void AnimationChasing::begin (LedControl& lc_) {
+void AnimationChasing::begin (LedController& lc_) {
 	lc = &lc_;
 	i = 0;
 }
 
 boolean AnimationChasing::step () {
 	for (byte j = 0; j < 3; ++j) {
-		const byte k = pgm_read_byte (&(splash_order[i + j]));
-		const MatrixCoordinates& pos = ledCoordinates[k];
-		lc -> setLed (0, pos.row, pos.col, true);
+		const C16Key k = static_cast<C16Key> (pgm_read_byte (&(splash_order[i + j])));
+		lc -> setLedForKey (k, true);
 	}
 	
 	delay (40);
 
-	const byte k = pgm_read_byte (&(splash_order[i]));
-	const MatrixCoordinates& pos = ledCoordinates[k];
-	lc -> setLed (0, pos.row, pos.col, false);
+	const C16Key k = static_cast<C16Key> (pgm_read_byte (&(splash_order[i])));
+	lc -> setLedForKey (k, false);
 
 	return ++i < N_PHYSICAL_KEYS + 1;
 }

@@ -5,30 +5,13 @@
  * | |\/| |/ _ \/ __| '_ \| ___ \/ _ \ / _` | '__/ _` | | | | ___ \
  * | |  | |  __/ (__| | | | |_/ / (_) | (_| | | | (_| |_| |_| \_/ |
  * \_|  |_/\___|\___|_| |_\____/ \___/ \__,_|_|  \__,_|\___/\_____/
-* 
+ *
  * Copyright (c) 2024-2025 SukkoPera <software@sukkology.net>
  *
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-const byte PIN_LED_R = A5;
-const byte PIN_LED_G = A4;
-const byte PIN_LED_B = A3;
-const byte PIN_MAX7221_SEL = A2;
-const byte PIN_MAX7221_DATA = A1;
-const byte PIN_MAX7221_CLK = A0;
-
-// TODO: Make another KeyboardScanner with this stuff
-/** \brief Number of rows in the C16/Plus4 keyboard matrix
- */
-const byte MATRIX_ROWS = 8;
-
-/** \brief Number of columns in the C16/Plus4 keyboard matrix
- */
-const byte MATRIX_COLS = 8;
-
-#include "LedControl.h"
-LedControl lc (PIN_MAX7221_DATA, PIN_MAX7221_CLK, PIN_MAX7221_SEL, 1 /* Number of MAX72xx chips */);
+#include <Arduino.h>
 
 unsigned long DELAY_TIME = 35;
 
@@ -47,6 +30,10 @@ KeyboardScanner *kbdScanner;
 #include "UsbKeyboard.h"
 UsbKeyboard usbKeyboard;
 
+#include "LedController.h"
+SimpleLedController simpleLedController;
+LedController& ledController = simpleLedController;
+
 #include "AnimationChasing.h"
 AnimationChasing animationChasing;
 
@@ -60,9 +47,9 @@ Animation *animations[N_ANIMATIONS] = {
 	&animationScrollingColumn
 };
 
-#include "C16Key.h"
+#include "common.h"
 #include "logo.h"
-
+#include "C16Key.h"
 
 enum class Mode: byte {
 	ALWAYS_OFF,
@@ -70,10 +57,6 @@ enum class Mode: byte {
 	PRESSED_ON,
 	PRESSED_OFF
 };
-
-// MAX72xx min/max brightness values
-constexpr byte MIN_BRIGHTNESS = 0;
-constexpr byte MAX_BRIGHTNESS = 15;
 
 //! \name Configuration values saved in EEPROM
 //! @{
@@ -98,12 +81,8 @@ constexpr word EEP_BRIGHTNESS = 0x102;
 
 #include <avr/pgmspace.h>
 
+#include "keymap.h"
 #include "MatrixCoordinates.h"
-
-/* Maps a key to the (row, col) tuple that controls its led.
- * Built by buildLedCoordinates().
- */
-MatrixCoordinates ledCoordinates[N_PHYSICAL_KEYS];
 
 /* Maps a key to the (row, col) tuple describing its position in the keyboard matrix, useful for quick lookups.
  * Built by buildKeyCoordinates().
@@ -117,17 +96,6 @@ MatrixCoordinates keyCoordinates[N_PHYSICAL_KEYS];
  */
 Key matrix[MATRIX_ROWS][MATRIX_COLS];
 
-constexpr C16Key keymap[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
-	{C16Key::DEL,  C16Key::RETURN,   C16Key::POUND,     C16Key::HELP,  C16Key::F1,     C16Key::F2,    C16Key::F3,    C16Key::AT},
-	{C16Key::_3,   C16Key::W,        C16Key::A,         C16Key::_4,    C16Key::Z,      C16Key::S,     C16Key::E,     C16Key::SHIFT},
-	{C16Key::_5,   C16Key::R,        C16Key::D,         C16Key::_6,    C16Key::C,      C16Key::F,     C16Key::T,     C16Key::X},
-	{C16Key::_7,   C16Key::Y,        C16Key::G,         C16Key::_8,    C16Key::B,      C16Key::H,     C16Key::U,     C16Key::V},
-	{C16Key::_9,   C16Key::I,        C16Key::J,         C16Key::_0,    C16Key::M,      C16Key::K,     C16Key::O,     C16Key::N},
-	{C16Key::DOWN, C16Key::P,        C16Key::L,         C16Key::UP,    C16Key::PERIOD, C16Key::COLON, C16Key::MINUS, C16Key::COMMA},
-	{C16Key::LEFT, C16Key::ASTERISK, C16Key::SEMICOLON, C16Key::RIGHT, C16Key::ESC,    C16Key::EQUAL, C16Key::PLUS,  C16Key::SLASH},
-	{C16Key::_1,   C16Key::CLEAR,    C16Key::CTRL,      C16Key::_2,    C16Key::SPACE,  C16Key::CMD,   C16Key::Q,     C16Key::RUNSTOP}
-};
-
 // Only useful for debugging
 //~ constexpr char KEY_NAMES[MATRIX_ROWS][MATRIX_COLS][4] = {
 	//~ {"DEL", "RET", "£",   "HLP", "F1",  "F2", "F3", "@"},
@@ -140,34 +108,6 @@ constexpr C16Key keymap[MATRIX_ROWS][MATRIX_COLS] PROGMEM = {
 	//~ {"1",   "CLR", "CTL", "2",   "SPC", "C=", "Q",  "RUN"}
 //~ };
 
-// Populates the ledCoordinates array
-boolean buildLedCoordinates () {
-	bool found;
-	
-	for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {
-		found = false;
-		for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
-			for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
-				if (pgm_read_byte (&keymap[row][col]) == i) {
-					/* The led matrix was supposed to be the same as the keyboard matrix. I don't know whether I made a
-					 * wiring mistake or if LedControl numbers things differently, but it turns out we need to swap the
-					 * coordinates and modify them slightly in order to use them with lc.setLed().
-					 */
-					ledCoordinates[i].row = col;
-					ledCoordinates[i].col = (row + 1) % 8;
-					found = true;
-				}
-			}
-		}
-
-		if (!found) {
-			break;
-		}
-	}
-
-	return found;
-}
-
 // Populates the keyCoordinates array
 boolean buildKeyCoordinates () {
 	bool found;
@@ -176,7 +116,7 @@ boolean buildKeyCoordinates () {
 		found = false;
 		for (byte row = 0; row < MATRIX_ROWS && !found; ++row) {
 			for (byte col = 0; col < MATRIX_COLS && !found; ++col) {
-				if (pgm_read_byte (&keymap[row][col]) == i) {
+				if (pgm_read_byte (&KEYMAP[row][col]) == i) {
 					keyCoordinates[i].row = row;
 					keyCoordinates[i].col = col;
 					found = true;
@@ -192,21 +132,19 @@ boolean buildKeyCoordinates () {
 	return found;
 }
 
+inline const MatrixCoordinates& getMatrixCoordinates (const C16Key key) {
+	return ledCoordinates[static_cast<byte> (key)];
+}
+
 // Called when a keypress is detected
-void onKeyPressed (const byte row, const byte col) {
+void onKeyPressed (const C16Key k) {
 	switch (mode) {
-		case Mode::PRESSED_ON: {
-			const byte k = pgm_read_byte (&keymap[row][col]);
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc.setLed (0, pos.row, pos.col, true);
+		case Mode::PRESSED_ON:
+			ledController.setLedForKey(k, true);
 			break;
-		}
-		case Mode::PRESSED_OFF: {
-			const byte k = pgm_read_byte (&keymap[row][col]);
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc.setLed (0, pos.row, pos.col, false);
+		case Mode::PRESSED_OFF:
+			ledController.setLedForKey(k, false);
 			break;
-		}
 		case Mode::ALWAYS_ON:
 		case Mode::ALWAYS_OFF:
 			// Nothing to do
@@ -215,20 +153,14 @@ void onKeyPressed (const byte row, const byte col) {
 }
 
 // Called when a keyrelease is detected
-void onKeyReleased (const byte row, const byte col) {
+void onKeyReleased (const C16Key k) {
 	switch (mode) {
-		case Mode::PRESSED_ON: {
-			const byte k = pgm_read_byte (&keymap[row][col]);
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc.setLed (0, pos.row, pos.col, false);
+		case Mode::PRESSED_ON:
+			ledController.setLedForKey(k, false);
 			break;
-		}
-		case Mode::PRESSED_OFF: {
-			const byte k = pgm_read_byte (&keymap[row][col]);
-			const MatrixCoordinates& pos = ledCoordinates[k];
-			lc.setLed (0, pos.row, pos.col, true);
+		case Mode::PRESSED_OFF:
+			ledController.setLedForKey(k, true);
 			break;
-		}
 		case Mode::ALWAYS_ON:
 		case Mode::ALWAYS_OFF:
 			// Nothing to do
@@ -250,31 +182,25 @@ void updateLighting () {
 	switch (mode) {
 		case Mode::ALWAYS_ON:
 			// Turn all leds on
-			for (byte i = 0; i < MATRIX_COLS; ++i) {
-				lc.setRow (0, i, 0xFF);
-			}
+			ledController.setAllLeds(true);
 			break;
 		case Mode::PRESSED_OFF:
-			for (byte r = 0; r < MATRIX_ROWS; ++r) {
-				for (byte c = 0; c < MATRIX_COLS; ++c) {
-					const byte k = pgm_read_byte (&keymap[r][c]);
-					const MatrixCoordinates& pos = ledCoordinates[k];
-					lc.setLed (0, pos.row, pos.col, matrix[r][c] != 0 ? false : true);
+			for (byte row = 0; row < MATRIX_ROWS; ++row) {
+				for (byte col = 0; col < MATRIX_COLS; ++col) {
+					const C16Key k = getKey(row, col);
+					ledController.setLedForKey(k, matrix[row][col] != 0 ? false : true);
 				}
 			}
 			break;
 		case Mode::ALWAYS_OFF:
 			// Turn all leds off
-			for (byte i = 0; i < MATRIX_COLS; ++i) {
-				lc.setRow (0, i, 0x00);
-			}
+			ledController.setAllLeds(false);
 			break;
 		case Mode::PRESSED_ON:
-			for (byte r = 0; r < MATRIX_ROWS; ++r) {
-				for (byte c = 0; c < MATRIX_COLS; ++c) {
-					const byte k = pgm_read_byte (&keymap[r][c]);
-					const MatrixCoordinates& pos = ledCoordinates[k];
-					lc.setLed (0, pos.row, pos.col, matrix[r][c] != 0 ? true : false);
+			for (byte row = 0; row < MATRIX_ROWS; ++row) {
+				for (byte col = 0; col < MATRIX_COLS; ++col) {
+					const C16Key k = getKey(row, col);
+					ledController.setLedForKey(k, matrix[row][col] != 0 ? true : false);
 				}
 			}
 			break;
@@ -305,9 +231,77 @@ void onSetBrightness (const int8_t diff) {
 	if (newBrightness >= MIN_BRIGHTNESS && newBrightness <= MAX_BRIGHTNESS) {
 		brightness = static_cast<byte> (newBrightness);
 		EEPROM.write (EEP_BRIGHTNESS, static_cast<byte> (brightness));
-		lc.setIntensity (0, brightness);
+		ledController.setBrightness(brightness);
 		Log.debug (F("Brightness set to %d\n"), static_cast<int> (brightness));
 	}
+}
+
+/** \brief Updates matrix and generates key press/release events
+ *
+ * \param newBuf Keys currently being pressed
+ */
+void handleKeyboard (const KeyBuffer& newBuf) {
+	//~ if (newBuf.size > 0) {
+		//~ debug (F("Handling new buffer: "));
+		//~ for (byte i = 0; i < newBuf.size; ++i) {
+			//~ debug (newBuf[i] & 0xFF, HEX);
+			//~ debug (' ');
+		//~ }
+		//~ debugln (' ');
+	//~ }
+
+	// Check for keys that were just released
+	for (byte r = 0; r < MATRIX_ROWS; ++r) {
+		for (byte c = 0; c < MATRIX_COLS; ++c) {
+			Key& usbKeycode = matrix[r][c];
+			if (newBuf.find (usbKeycode, eventKeyCompare) < 0) {
+				// Key released
+				const C16Key k = getKey(r, c);
+				Log.trace (F("USB Key released: %X\n"), (int) usbKeycode);
+				onKeyReleased (k);			// Call this now, before we alter i
+				boolean ok = usbKeyboard.release (usbKeycode);
+#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
+				if (ok) {
+#endif
+					usbKeycode = 0;		// It's a reference so this works :)
+#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
+				} else {
+#else
+				if (!ok) {
+#endif
+					Log.error (F("Key release failed: %X\n"), (int) usbKeycode);
+				}
+			}
+		}
+	}
+
+	// Check for keys that were just pressed
+	for (byte i = 0; i < newBuf.size; ++i) {
+		const KeyEvent& evt = newBuf[i];
+		if (matrix[evt.row][evt.col] != evt.key) {
+			// New key pressed
+			const C16Key k = getKey(evt.row, evt.col);
+			Log.trace (F("USB Key pressed: %X\n"), (int) evt.key);
+			onKeyPressed (k);
+			boolean ok = usbKeyboard.press (evt.key);
+#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
+			if (ok) {
+#endif
+				matrix[evt.row][evt.col] = evt.key;
+#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
+			} else {
+#else
+			if (!ok) {
+#endif
+				/* Any failures are probably due to the internal HID Library
+				 * buffer being full
+				 */
+				Log.error (F("Key press failed: %X\n"), (int) evt.key);
+			}
+		}
+	}
+
+	usbKeyboard.commit ();
 }
 
 void setup () {
@@ -330,15 +324,6 @@ void setup () {
 	Log.setShowLevel (true);
 
 	Log.info (F("Built on %s %s\n"), __DATE__, __TIME__);
-	
-	// Wake up and configure the MAX72XX ASAP, since it might show a random pattern at startup
-	lc.shutdown (0, false);
-	lc.clearDisplay (0);
-	brightness = EEPROM.read (EEP_BRIGHTNESS);
-	if (brightness > MAX_BRIGHTNESS) {
-		brightness = MAX_BRIGHTNESS;
-	}
-	lc.setIntensity (0, brightness);
 
 	// R/G/B LED pins: configure as OUTPUTs and turn on
 	pinMode (PIN_LED_R, OUTPUT);
@@ -348,8 +333,10 @@ void setup () {
 	pinMode (PIN_LED_B, OUTPUT);
 	digitalWrite (PIN_LED_B, HIGH);
 
-	// Build the required coordinates array
-	if (!buildLedCoordinates () || !buildKeyCoordinates ()) {
+	/* Wake up and configure the led controller ASAP, since it might show a random pattern at startup, and build the
+	 * required coordinates array
+	 */
+	if (!ledController.begin () || !buildKeyCoordinates ()) {
 		Log.error (F("Unable to build the LED coordinates array, this indicates a mistake in the code\n"));
 
 		// Hang with fast blinking
@@ -360,6 +347,14 @@ void setup () {
 			delay (222);
 		}
 	}
+
+	// Continue with led configuration
+	brightness = EEPROM.read (EEP_BRIGHTNESS);
+	if (brightness > MAX_BRIGHTNESS) {
+		brightness = MAX_BRIGHTNESS;
+	}
+	ledController.setBrightness(brightness);
+
 
 	// Start with normal keyboard scanner...
 	kbdScanner = &kbdScannerC16;
@@ -377,7 +372,7 @@ void setup () {
 
 	Log.debug (F("Playing intro animation %d\n"), static_cast<int> (animationId));
 	Animation& animation = *animations[animationId];
-	animation.begin (lc);
+	animation.begin (ledController);
 	unsigned long start = millis ();
 	while (animation.step ()) {
 		// ... check if we have activity on PINB (our wannabe-output port) ...
@@ -479,70 +474,4 @@ void loop () {
 			
 		lastKeyboardScanTime = millis ();
 	}
-}
-
-/** \brief Updates matrix and generates key press/release events
- *
- * \param newBuf Keys currently being pressed
- */
-void handleKeyboard (const KeyBuffer& newBuf) {
-	//~ if (newBuf.size > 0) {
-		//~ debug (F("Handling new buffer: "));
-		//~ for (byte i = 0; i < newBuf.size; ++i) {
-			//~ debug (newBuf[i] & 0xFF, HEX);
-			//~ debug (' ');
-		//~ }
-		//~ debugln (' ');
-	//~ }
-
-	// Check for keys that were just released
-	for (byte r = 0; r < MATRIX_ROWS; ++r) {
-		for (byte c = 0; c < MATRIX_COLS; ++c) {
-			Key& usbKeycode = matrix[r][c];
-			if (newBuf.find (usbKeycode, eventKeyCompare) < 0) {
-				// Key released
-				Log.trace (F("USB Key released: %X\n"), (int) usbKeycode);
-				onKeyReleased (r, c);			// Call this now, before we alter i
-				boolean ok = usbKeyboard.release (usbKeycode);
-#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
-				if (ok) {
-#endif
-					usbKeycode = 0;		// It's a reference so this works :)
-#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
-				} else {
-#else
-				if (!ok) {
-#endif
-					Log.error (F("Key release failed: %X\n"), (int) usbKeycode);
-				}
-			}
-		}
-	}
-	
-	// Check for keys that were just pressed
-	for (byte i = 0; i < newBuf.size; ++i) {
-		const KeyEvent& evt = newBuf[i];
-		if (matrix[evt.row][evt.col] != evt.key) {
-			// New key pressed
-			Log.trace (F("USB Key pressed: %X\n"), (int) evt.key);
-			onKeyPressed (evt.row, evt.col);
-			boolean ok = usbKeyboard.press (evt.key);
-#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
-			if (ok) {
-#endif
-				matrix[evt.row][evt.col] = evt.key;
-#ifdef PEDANTIC_PRESS_RELEASE_CHECKS
-			} else {
-#else
-			if (!ok) {
-#endif
-				/* Any failures are probably due to the internal HID Library
-				 * buffer being full
-				 */
-				Log.error (F("Key press failed: %X\n"), (int) evt.key);
-			}
-		}
-	}
-
-	usbKeyboard.commit ();
 }
