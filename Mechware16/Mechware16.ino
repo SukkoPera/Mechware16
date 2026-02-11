@@ -11,29 +11,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include "common.h"
 #include <Arduino.h>
-
-constexpr byte PIN_LED_R = A5;
-constexpr byte PIN_LED_G = A4;
-constexpr byte PIN_LED_B = A3;
-constexpr byte PIN_MAX7221_SEL = A2;
-constexpr byte PIN_MAX7221_DATA = A1;
-constexpr byte PIN_MAX7221_CLK = A0;
-constexpr byte PIN_RESET = 5;
-
-// TODO: Make another KeyboardScanner with this stuff
-/** \brief Number of rows in the C16/Plus4 keyboard matrix
- */
-constexpr byte MATRIX_ROWS = 8;
-
-/** \brief Number of columns in the C16/Plus4 keyboard matrix
- */
-constexpr byte MATRIX_COLS = 8;
-
-#include "LedControl.h"
-LedControl lc (PIN_MAX7221_DATA, PIN_MAX7221_CLK, PIN_MAX7221_SEL, 1 /* Number of MAX72xx chips */);
-
-//~ unsigned long DELAY_TIME = 35;
+#include <DigitalIO.h>
+#include <SoftPWM.h>
 
 #include "KbdScannerC16.h"
 KbdScannerC16 kbdScannerC16;
@@ -99,7 +80,8 @@ byte animationId = 0;
 
 byte brightness = MAX_BRIGHTNESS;
 
-Clock clock = Clock::PAL;
+// Index in machineSettings[]
+byte configuration = -1;
 //! @}
 
 /*******************************************************************************
@@ -113,7 +95,7 @@ Logging Log;
 constexpr word EEP_ANIMATION = 0x100;
 constexpr word EEP_MODE = 0x101;
 constexpr word EEP_BRIGHTNESS = 0x102;
-constexpr word EEP_CLOCK = 0x103;
+constexpr word EEP_CONFIGURATION = 0x103;
 
 #include <avr/pgmspace.h>
 
@@ -128,6 +110,61 @@ KeyMap keyMap;
  * OK).
  */
 Key matrix[MATRIX_ROWS][MATRIX_COLS];
+
+struct Color {
+	byte r;
+	byte g;
+	byte b;
+};
+
+struct MachineSettings {
+	Clock clock0;	// System Clock
+	Clock clock1;	// ACIA Clock
+	Clock clock2;	// Unused
+	byte romSlot;
+	Color color;
+};
+
+MachineSettings machinePal {
+	Clock::SYS_PAL,
+	Clock::ACIA_NORMAL,
+	Clock::DISABLED,
+	0,
+	{255, 0, 0}
+};
+
+MachineSettings machinePalJiffyDos {
+	Clock::SYS_PAL,
+	Clock::ACIA_NORMAL,
+	Clock::DISABLED,
+	1,
+	{127, 255, 0}
+};
+
+MachineSettings machinePalFastAcia {
+	Clock::SYS_PAL,
+	Clock::ACIA_DOUBLE,
+	Clock::DISABLED,
+	0,
+	{35, 255, 0}
+};
+
+MachineSettings machineNtsc {
+	Clock::SYS_NTSC,
+	Clock::ACIA_NORMAL,
+	Clock::DISABLED,
+	1,
+	{0, 0, 255}
+};
+
+constexpr byte MACHINE_SETTINGS_NO = 4;
+
+MachineSettings machineSettings[MACHINE_SETTINGS_NO] = {
+	machinePal,
+	machinePalJiffyDos,
+	machinePalFastAcia,
+	machineNtsc
+};
 
 // Called when a keypress is detected
 void onKeyPressed (const C16Key k) {
@@ -235,13 +272,23 @@ void onReset () {
 	reset.high ();
 }
 
-void onSetClock (const Clock newClock) {
-	if (newClock != clock) {
-		Log.debug (F("Setting clock %d\n"), static_cast<int> (newClock));
+void onSetMachineConfiguration (const byte newConfiguration) {
+	if (/*newConfiguration != configuration && */newConfiguration < MACHINE_SETTINGS_NO) {
+		Log.debug (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
+		const MachineSettings& settings = machineSettings[newConfiguration];
 
-		clock = newClock;
-		EEPROM.write (EEP_CLOCK, static_cast<byte> (clock));
-		clockGenerator.setClock (newClock);
+		clockGenerator.setClock (0, settings.clock0);
+		clockGenerator.setClock (1, settings.clock1);
+		clockGenerator.setClock (2, settings.clock2);
+
+		fastDigitalWrite (PIN_ROMSWITCH, settings.romSlot == 0 ? LOW : HIGH);
+
+		SoftPWMSet (PIN_LED_R, settings.color.r);
+		SoftPWMSet (PIN_LED_G, settings.color.g);
+		SoftPWMSet (PIN_LED_B, settings.color.b);
+
+		configuration = newConfiguration;
+		EEPROM.write (EEP_CONFIGURATION, static_cast<byte> (configuration));
 	}
 }
 
@@ -338,22 +385,28 @@ void setup () {
 
 	Log.info (F("Built on %s %s\n"), __DATE__, __TIME__);
 
-	byte c = EEPROM.read (EEP_CLOCK);
-	if (c <= static_cast<byte> (Clock::NTSC)) {
-		clock = static_cast<Clock> (c);
+	// R/G/B LED pins: configure as OUTPUTs and turn on
+	fastPinConfig (PIN_LED_R, OUTPUT, HIGH);
+	fastPinConfig (PIN_LED_G, OUTPUT, HIGH);
+	fastPinConfig (PIN_LED_B, OUTPUT, HIGH);
+	SoftPWMBegin ();
+	SoftPWMSetFadeTime (PIN_LED_R, 500, 500);
+	SoftPWMSetFadeTime (PIN_LED_G, 500, 500);
+	SoftPWMSetFadeTime (PIN_LED_B, 500, 500);
+
+	// Other outputs
+	fastPinConfig (PIN_ROMSWITCH, OUTPUT, LOW);
+
+	// Apply startup machine configuration
+	byte c = EEPROM.read (EEP_CONFIGURATION);
+	if (c <= MACHINE_SETTINGS_NO) {
+		configuration = c;
 	} else {
 		// Default clock
-		clock = Clock::PAL;
+		configuration = 0;
 	}
-	clockGenerator.begin (clock);
-
-	// R/G/B LED pins: configure as OUTPUTs and turn on
-	pinMode (PIN_LED_R, OUTPUT);
-	digitalWrite (PIN_LED_R, HIGH);
-	pinMode (PIN_LED_G, OUTPUT);
-	digitalWrite (PIN_LED_G, HIGH);
-	pinMode (PIN_LED_B, OUTPUT);
-	digitalWrite (PIN_LED_B, HIGH);
+	clockGenerator.begin ();
+	onSetMachineConfiguration (configuration);
 
 	/* Wake up and configure the led controller ASAP, since it might show a random pattern at startup, and build the
 	 * required coordinates array
@@ -363,9 +416,9 @@ void setup () {
 
 		// Hang with fast blinking
 		while (true) {
-			digitalWrite (PIN_LED_R, HIGH);
+			fastDigitalWrite (PIN_LED_R, HIGH);
 			delay (222);
-			digitalWrite (PIN_LED_R, LOW);
+			fastDigitalWrite (PIN_LED_R, LOW);
 			delay (222);
 		}
 	}
@@ -470,12 +523,18 @@ void loop () {
 			} else if (isPressed (C16Key::MINUS)) {
 				onSetBrightness (-1);
 				lastCombo = C16Key::MINUS;
-			} else if (isPressed (C16Key::P)) {
-				onSetClock (Clock::PAL);
-				lastCombo = C16Key::P;
-			} else if (isPressed (C16Key::N)) {
-				onSetClock (Clock::NTSC);
-				lastCombo = C16Key::N;
+			} else if (isPressed (C16Key::Q)) {
+				onSetMachineConfiguration (0);
+				lastCombo = C16Key::Q;
+			} else if (isPressed (C16Key::W)) {
+				onSetMachineConfiguration (1);
+				lastCombo = C16Key::W;
+			} else if (isPressed (C16Key::E)) {
+				onSetMachineConfiguration (2);
+				lastCombo = C16Key::E;
+			} else if (isPressed (C16Key::R)) {
+				onSetMachineConfiguration (3);
+				lastCombo = C16Key::R;
 			} else if (isPressed (C16Key::DEL)) {
 				onReset ();
 				lastCombo = C16Key::DEL;		// FIXME: HOLD UNTIL PRESSED?

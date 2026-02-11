@@ -16,6 +16,9 @@
 #include <Arduino.h>
 #include "config.h"
 
+constexpr byte PIN_RESET = 5;
+constexpr byte PIN_ROMSWITCH = 7;
+
 constexpr byte PIN_LED_R = A5;
 constexpr byte PIN_LED_G = A4;
 constexpr byte PIN_LED_B = A3;

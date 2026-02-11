@@ -19,23 +19,37 @@
 #include "si5351.h"
 
 enum class Clock: byte {
-	PAL,
-	NTSC
+	DISABLED = 0,
+	SYS_PAL,
+	SYS_NTSC,
+	ACIA_NORMAL,			// Normal ACIA clock resulting in max 19200 bps
+	ACIA_DOUBLE,			// Double ACIA clock, 38400 bps theoretically possible
+	ACIA_QUAD,				// 76800 bps ;)
+	ACIA_MIDIHACK,			/* This allows reaching the 31250 bps required for midi configuring the acia for 19200 bps
+	                         * (divisor = 96 => 3000000/96 = 31250)
+	                         */
 };
 
 class ClockGenerator {
 public:
-	void begin (Clock clock);
+	void begin ();
 
-	void setClock (Clock clock);
+	void setClock (byte clockId, Clock clock);
 
 private:
 	static constexpr uint32_t QUARTZ_FREQUENCY = 25000000UL;
 
 	static constexpr uint64_t CLOCK_FREQUENCIES[] = {
-		17734475ULL,	// PAL
-		14318181ULL		// NTSC
+		0,				// Disabled
+		17734475ULL,	// System clock, PAL
+		14318181ULL,	// System clock, NTSC
+		1843200,		// ACIA Normal
+		3686400,		// ACIA Double
+		7372800,		// ACIA Quad
+		3000000,		// ACIA Midi Hack
 	};
 	
 	Si5351 si5351;
+
+	void setFrequency (si5351_clock clockId, uint64_t freq);
 };
