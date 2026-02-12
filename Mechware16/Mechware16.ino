@@ -28,8 +28,10 @@ KbdScannerPassive16 kbdScannerPassive;
  */
 KeyboardScanner *kbdScanner;
 
+#ifdef ENABLE_USB
 #include "UsbKeyboard.h"
 UsbKeyboard usbKeyboard;
+#endif
 
 #ifdef ENABLE_LEDCONTROLLER_MAX7221
 #include "LedControllerMax7221.h"
@@ -80,10 +82,6 @@ byte brightness = MAX_BRIGHTNESS;
 // Index in machineSettings[]
 byte configuration = -1;
 //! @}
-
-/*******************************************************************************
- * END OF SETTINGS
- ******************************************************************************/
 
 #include "Log.h"
 Logging Log;
@@ -275,6 +273,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 				Log.debug (F("Key released: %s\n"), keyMap.getKeyName (k));
 				Log.trace (F("USB Key released: %X\n"), (int) usbKeycode);
 				onKeyReleased (k);
+#ifdef ENABLE_USB
 				boolean ok = usbKeyboard.release (usbKeycode);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 				if (ok) {
@@ -288,6 +287,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 #endif
 					Log.error (F("Key release failed: %X\n"), (int) usbKeycode);
 				}
+#endif
 			}
 		}
 	}
@@ -301,6 +301,7 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 			Log.debug (F("Key pressed: %s\n"), keyMap.getKeyName (k));
 			Log.trace (F("USB Key pressed: %X\n"), (int) evt.key);
 			onKeyPressed (k);
+#ifdef ENABLE_USB
 			boolean ok = usbKeyboard.press (evt.key);
 #ifdef PEDANTIC_PRESS_RELEASE_CHECKS
 			if (ok) {
@@ -317,10 +318,13 @@ void handleKeyboard (const KeyBuffer& newBuf) {
 				 */
 				Log.error (F("Key press failed: %X\n"), (int) evt.key);
 			}
+#endif
 		}
 	}
 
+#ifdef ENABLE_USB
 	usbKeyboard.commit ();
+#endif
 }
 
 void setup () {
@@ -449,7 +453,9 @@ void setup () {
 		Log.error (F("Failed to initialize keyboard scanner\n"));
 	}
 
+#ifdef ENABLE_USB
 	usbKeyboard.begin ();
+#endif
 }
 
 void loop () {
@@ -482,6 +488,7 @@ void loop () {
 			handleKeyboard (kBuf);
 		}
 
+#ifdef ENABLE_USB
 		// Update leds - Note that this needs a patched Keyboard library
 		byte leds = usbKeyboard.getLeds ();
 		kbdScanner -> updateLeds (
@@ -489,6 +496,7 @@ void loop () {
 			leds & USBLED_NUM_LOCK,
 			leds & USBLED_SCROLL_LOCK
 		);
+#endif
 
 		// lastKeyboardScanTime = millis ();
 		lastKeyboardScanTime += KEYBOARD_SCAN_INTERVAL_MS;

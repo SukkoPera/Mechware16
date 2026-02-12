@@ -16,12 +16,19 @@
 
 #pragma once
 
-#include <HID-Project.h>
-
 const uint16_t MASK_ASCIIKEY = (uint16_t) (1U << 15);
 #define A(c) ((c) | (MASK_ASCIIKEY))
 #define KEYPRESS_IS_ASCII(k) ((k) & MASK_ASCIIKEY)
 #define ASCII_EXTRACT(c) static_cast<uint8_t> ((c) & 0xFF)
+
+#include <KeyboardLayouts/ImprovedKeylayouts.h>
+
+#ifdef ENABLE_USB
+
+#include <HID-Project.h>
+
+#include "Log.h"
+extern Logging Log;
 
 // Use same values as HID-Project's KeyboardLeds
 enum UsbKeyboardLeds {
@@ -34,6 +41,8 @@ class UsbKeyboard {
 public:
 	boolean begin () {
 		BootKeyboard.begin ();
+
+		Log.info (F("USB support initialized\n"));
   
 		return true;
 	}
@@ -93,3 +102,5 @@ public:
 		return needed;
 	}
 };
+
+#endif

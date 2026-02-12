@@ -37,6 +37,7 @@ constexpr Key KeyMapperC16::keymapPositional[MATRIX_ROWS][MATRIX_COLS] = {
 	{KEY_1,				KEY_HOME,			KEY_TAB,		KEY_2,		KEY_SPACE,	KEY_LEFT_CTRL,	KEY_Q,				KEY_ESC}
 };
 
+#ifdef ENABLE_USB
 const Key KeyMapperC16::keymapSymbolic[MATRIX_ROWS][MATRIX_COLS] = {
 	{KEY_BACKSPACE,		KEY_ENTER,			POUND_SIGN,		KEY_F8,		KEY_F1,		KEY_F2,			KEY_F3,				A('@')},
 	{A('3'),			A('w'),				A('a'),			A('4'),		A('z'),		A('s'),			A('e'),				KEY_LEFT_SHIFT},
@@ -58,3 +59,4 @@ const Key KeyMapperC16::keymapSymbolicShifted[MATRIX_ROWS][MATRIX_COLS] = {
 	{KEY_LEFT,			A('*'),				A(']'),			KEY_RIGHT,	KEY_ESC,	A('='),			A('+'),				A('?')},
 	{A('!'),			KEY_HOME,			KEY_LEFT_CTRL,	A('\"'),	A(' '),		KEY_LEFT_ALT,	A('Q'),				KEY_TAB}
 };
+#endif

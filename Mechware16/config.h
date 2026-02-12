@@ -80,6 +80,12 @@ const unsigned long KEYBOARD_SCAN_INTERVAL_MS = 15;
  */
 #define DEBOUNCE_FACTOR_C16 20
 
+/** \brief Enable USB keyboard support
+ *
+ * Mainly meant for use with SBCs running emulators.
+ */
+// #define ENABLE_USB
+
 /*! \brief Retry failed key presses/releases
  *
  */
@@ -93,13 +99,6 @@ const unsigned long KEYBOARD_SCAN_INTERVAL_MS = 15;
  * Euro symbol instead (when in symbolic mapping).
  */
 //~ #define ENABLE_EURO_KEY
-
-#define KEYMAPS_IN_FLASH
-
-//~ #define LED_PIN LED_BUILTIN
-
-//! \brief Maximum length of command strings sent on the serial port
-const byte MAX_SERCMD_LEN = 32;
 
 /*******************************************************************************
  * END OF SETTINGS

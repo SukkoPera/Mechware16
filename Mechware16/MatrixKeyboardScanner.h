@@ -142,11 +142,7 @@ public:
 #ifdef ENABLE_MATRIX_DEBUG
 						Log.debug (F("Detected key pressed at row %d, col %d\n"), (int) row, (int) col);
 #endif
-#ifdef KEYMAPS_IN_FLASH
 						const Key key = pgm_read_word (&keymap[row][col]);
-#else
-						const Key key = keymap[row][col];
-#endif
 						if (key != 0) {
 							if (!kbuf.full ()) {
 								KeyEvent evt {

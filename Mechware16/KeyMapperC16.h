@@ -41,16 +41,19 @@
  */
 class KeyMapperC16: public KeyMapper<MATRIX_ROWS, MATRIX_COLS> {
 private:
+#ifdef ENABLE_USB
 	enum KbdMode {
 		KBD_POSITIONAL,
 		KBD_SYMBOLIC
 	};
 
 	KbdMode kmode;
+#endif
 	
 	// C16, Positional Mapping with our own mapping settings
 	static const Key keymapPositional[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
-	
+
+#ifdef ENABLE_USB
 	static const Key keymapSymbolic[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
 
 	static const Key keymapSymbolicShifted[MATRIX_ROWS][MATRIX_COLS] PROGMEM;
@@ -64,9 +67,11 @@ private:
 
 		return md;
 	}
+#endif
 	
 public:
 	virtual boolean begin (const Matrix& mtx) override {
+#ifdef ENABLE_USB
 		switch ((kmode = getStartupMode (mtx))) {
 			case KBD_POSITIONAL:
 				Log.info (F("Starting up in POSITIONAL mode\n"));
@@ -78,14 +83,20 @@ public:
 				// Nothing to do
 				break;
 		}
+#else
+		setKeyMap (keymapPositional);
+#endif
 		return KeyMapper::begin (mtx);
 	}
 
 	virtual byte map (const Matrix& mtx, KeyBuffer& kbuf) override {
 		byte ret = 0;
-		
+
+#ifdef ENABLE_USB
 		if (kmode == KBD_POSITIONAL) {
+#endif
 			ret = KeyMapper::map (mtx, kbuf);
+#ifdef ENABLE_USB
 		} else {
 			if ((mtx[1] & (1 << 7)) == 0) {
 				// Shift is pressed
@@ -135,6 +146,7 @@ public:
 				}
 			}
 		}
+#endif
 
 		return ret;
 	}
