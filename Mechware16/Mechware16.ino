@@ -69,7 +69,7 @@ ClockGenerator clockGenerator;
 
 //! \name Configuration values saved in EEPROM
 //! @{
-Mode mode = Mode::PRESSED_OFF;
+LightingMode mode = LightingMode::PRESSED_OFF;
 
 byte animationId = 0;
 
@@ -95,8 +95,6 @@ constexpr word EEP_CONFIGURATION = 0x103;
 #include <avr/pgmspace.h>
 
 #include "keymap.h"
-#include "MatrixCoordinates.h"
-
 KeyMap keyMap;
 
 /** \brief Keyboard matrix status
@@ -109,14 +107,14 @@ Key matrix[MATRIX_ROWS][MATRIX_COLS];
 // Called when a keypress is detected
 void onKeyPressed (const C16Key k) {
 	switch (mode) {
-		case Mode::PRESSED_ON:
+		case LightingMode::PRESSED_ON:
 			ledController.setLedForKey (k, true);
 			break;
-		case Mode::PRESSED_OFF:
+		case LightingMode::PRESSED_OFF:
 			ledController.setLedForKey (k, false);
 			break;
-		case Mode::ALWAYS_ON:
-		case Mode::ALWAYS_OFF:
+		case LightingMode::ALWAYS_ON:
+		case LightingMode::ALWAYS_OFF:
 			// Nothing to do
 			break;
 	}
@@ -125,14 +123,14 @@ void onKeyPressed (const C16Key k) {
 // Called when a keyrelease is detected
 void onKeyReleased (const C16Key k) {
 	switch (mode) {
-		case Mode::PRESSED_ON:
+		case LightingMode::PRESSED_ON:
 			ledController.setLedForKey (k, false);
 			break;
-		case Mode::PRESSED_OFF:
+		case LightingMode::PRESSED_OFF:
 			ledController.setLedForKey (k, true);
 			break;
-		case Mode::ALWAYS_ON:
-		case Mode::ALWAYS_OFF:
+		case LightingMode::ALWAYS_ON:
+		case LightingMode::ALWAYS_OFF:
 			// Nothing to do
 			break;
 	}
@@ -150,11 +148,11 @@ boolean isPressed (const C16Key k) {
 void updateLighting () {
 	// Update the LED pattern according to the chosen mode
 	switch (mode) {
-		case Mode::ALWAYS_ON:
+		case LightingMode::ALWAYS_ON:
 			// Turn all leds on
 			ledController.setAllLeds (true);
 			break;
-		case Mode::PRESSED_OFF:
+		case LightingMode::PRESSED_OFF:
 			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				for (byte col = 0; col < MATRIX_COLS; ++col) {
 					const C16Key k = keyMap.getKey (row, col);
@@ -163,11 +161,11 @@ void updateLighting () {
 				}
 			}
 			break;
-		case Mode::ALWAYS_OFF:
+		case LightingMode::ALWAYS_OFF:
 			// Turn all leds off
 			ledController.setAllLeds (false);
 			break;
-		case Mode::PRESSED_ON:
+		case LightingMode::PRESSED_ON:
 			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				for (byte col = 0; col < MATRIX_COLS; ++col) {
 					const C16Key k = keyMap.getKey (row, col);
@@ -179,7 +177,7 @@ void updateLighting () {
 	}
 }
 
-void setLightingMode (const Mode newMode) {
+void setLightingMode (const LightingMode newMode) {
 	if (newMode != mode) {
 		Log.info (F("Setting mode %d\n"), static_cast<int> (newMode));
 
@@ -219,8 +217,8 @@ void reset () {
 void setMachineConfiguration (const byte newConfiguration) {
 	if (newConfiguration != configuration && newConfiguration < MACHINE_SETTINGS_NO) {
 		Log.info (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
-		const MachineSettings& oldSettings = machineSettings[configuration];
-		const MachineSettings& newSettings = machineSettings[newConfiguration];
+		const auto& oldSettings = *static_cast<const MachineSettings*> (pgm_read_ptr (&machineSettings[configuration]));
+		const auto& newSettings = *static_cast<const MachineSettings*> (pgm_read_ptr (&machineSettings[newConfiguration]));
 		unsigned long start = millis ();
 
 		if (newSettings.forceReset || newSettings.romSlot != oldSettings.romSlot) {
@@ -430,11 +428,11 @@ void setup () {
 
 	// Prepare the initial LED pattern according to the saved mode
 	byte b = EEPROM.read (EEP_MODE);
-	if (b <= static_cast<byte> (Mode::PRESSED_OFF)) {
-		mode = static_cast<Mode> (b);
+	if (b <= static_cast<byte> (LightingMode::PRESSED_OFF)) {
+		mode = static_cast<LightingMode> (b);
 	} else {
 		// Default mode
-		mode = Mode::PRESSED_OFF;
+		mode = LightingMode::PRESSED_OFF;
 	}
 	updateLighting ();
 

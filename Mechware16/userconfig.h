@@ -15,7 +15,7 @@
 
 #include "types.h"
 
-MachineSettings machinePal {
+const MachineSettings machinePal PROGMEM {
     Clock::SYS_PAL,
     Clock::ACIA_NORMAL,
     Clock::DISABLED,
@@ -24,7 +24,7 @@ MachineSettings machinePal {
     false
 };
 
-MachineSettings machinePalJiffyDos {
+const MachineSettings machinePalJiffyDos PROGMEM {
     Clock::SYS_PAL,
     Clock::ACIA_NORMAL,
     Clock::DISABLED,
@@ -33,7 +33,7 @@ MachineSettings machinePalJiffyDos {
     false
 };
 
-MachineSettings machinePalFastAcia {
+const MachineSettings machinePalFastAcia PROGMEM {
     Clock::SYS_PAL,
     Clock::ACIA_DOUBLE,
     Clock::DISABLED,
@@ -42,7 +42,7 @@ MachineSettings machinePalFastAcia {
     false
 };
 
-MachineSettings machineNtsc {
+const MachineSettings machineNtsc PROGMEM {
     Clock::SYS_NTSC,
     Clock::ACIA_NORMAL,
     Clock::DISABLED,
@@ -53,15 +53,15 @@ MachineSettings machineNtsc {
 
 constexpr byte MACHINE_SETTINGS_NO = 4;
 
-MachineSettings machineSettings[MACHINE_SETTINGS_NO] = {
-    machinePal,
-    machinePalJiffyDos,
-    machinePalFastAcia,
-    machineNtsc
+const MachineSettings* const machineSettings[MACHINE_SETTINGS_NO] PROGMEM {
+    &machinePal,
+    &machinePalJiffyDos,
+    &machinePalFastAcia,
+    &machineNtsc
 };
 
 // Available actions
-void setLightingMode (const Mode newMode);
+void setLightingMode (const LightingMode newMode);
 void setAnimation (const int newAnimation);
 void setBrightness (const int8_t diff);
 void reset ();
@@ -69,16 +69,16 @@ void setMachineConfiguration (const byte newConfiguration);
 
 constexpr byte N_HOTKEYS = 13;
 
-HotKey actions[N_HOTKEYS] = {
+const HotKey actions[N_HOTKEYS] = {
     {C16Key::DEL, []{reset ();}},
 
     {C16Key::_1, []{setAnimation (0);}},
     {C16Key::_2, []{setAnimation (1);}},
 
-    {C16Key::F1,[]{setLightingMode (Mode::ALWAYS_ON);}},
-    {C16Key::F2,[]{setLightingMode (Mode::ALWAYS_OFF);}},
-    {C16Key::F3,[]{setLightingMode (Mode::PRESSED_OFF);}},
-    {C16Key::HELP,[]{setLightingMode (Mode::PRESSED_ON);}},
+    {C16Key::F1,[]{setLightingMode (LightingMode::ALWAYS_ON);}},
+    {C16Key::F2,[]{setLightingMode (LightingMode::ALWAYS_OFF);}},
+    {C16Key::F3,[]{setLightingMode (LightingMode::PRESSED_OFF);}},
+    {C16Key::HELP,[]{setLightingMode (LightingMode::PRESSED_ON);}},
 
     {C16Key::PLUS, [] {setBrightness(+1);}},
     {C16Key::MINUS, [] {setBrightness(-1);}},

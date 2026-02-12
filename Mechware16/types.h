@@ -16,7 +16,7 @@
 #include <Arduino.h>
 #include "C16Key.h"
 
-enum class Mode: byte {
+enum class LightingMode: byte {
     ALWAYS_OFF,
     ALWAYS_ON,
     PRESSED_ON,
