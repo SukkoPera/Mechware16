@@ -217,8 +217,11 @@ void reset () {
 void setMachineConfiguration (const byte newConfiguration) {
 	if (newConfiguration != configuration && newConfiguration < MACHINE_SETTINGS_NO) {
 		Log.info (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
-		const auto& oldSettings = *static_cast<const MachineSettings*> (pgm_read_ptr (&machineSettings[configuration]));
-		const auto& newSettings = *static_cast<const MachineSettings*> (pgm_read_ptr (&machineSettings[newConfiguration]));
+		const auto oldSettingsPgmPtr = static_cast<const MachineSettings*> (pgm_read_ptr (&machineSettings[configuration]));
+		const auto newSettingsPgmPtr = static_cast<const MachineSettings*> (pgm_read_ptr (&machineSettings[newConfiguration]));
+		MachineSettings oldSettings, newSettings;
+		memcpy_P (&oldSettings, oldSettingsPgmPtr, sizeof(MachineSettings));
+		memcpy_P (&newSettings, newSettingsPgmPtr, sizeof(MachineSettings));
 		unsigned long start = millis ();
 
 		if (newSettings.forceReset || newSettings.romSlot != oldSettings.romSlot) {
@@ -343,7 +346,7 @@ void setup () {
 
 	Log.setShowLevel (false);
 	Log.info (PSTR_TO_F (logo));
-	Log.info (F("---------------------------------------- Version " MECH16_VERSION_STR " ---------\n"));
+	Log.info (F("-------------------------------- Version " MECH16_VERSION_STR "-" GIT_HASH " ---------\n"));
 	Log.setShowLevel (true);
 
 	Log.info (F("Built on %s %s\n"), __DATE__, __TIME__);
@@ -360,22 +363,23 @@ void setup () {
 	// Other outputs
 	fastPinConfig (PIN_ROMSWITCH, OUTPUT, LOW);
 
-	// Apply startup machine configuration
+	// Clock generator
+	clockGenerator.begin ();
+
+	// Apply startup machine configuration (this will also set the global "configuration" variable
 	byte cfg = EEPROM.read (EEP_CONFIGURATION);
 	if (cfg <= MACHINE_SETTINGS_NO) {
-		configuration = cfg;
+		setMachineConfiguration (cfg);
 	} else {
 		// Default clock
-		configuration = 0;
+		setMachineConfiguration (0);
 	}
-	clockGenerator.begin ();
-	setMachineConfiguration (configuration);
 
 	/* Wake up and configure the led controller ASAP, since it might show a random pattern at startup, and build the
 	 * required coordinates array
 	 */
 	if (!ledController.begin () || !keyMap.begin ()) {
-		Log.error (F("Unable to build the LED coordinates array, this indicates a mistake in the code\n"));
+		Log.error (F("LED controller or key map failure, halting\n"));
 
 		// Hang with fast blinking
 		while (true) {
@@ -456,6 +460,8 @@ void setup () {
 #ifdef ENABLE_USB
 	usbKeyboard.begin ();
 #endif
+
+	Log.info (F("Ready!\n"));
 }
 
 void loop () {

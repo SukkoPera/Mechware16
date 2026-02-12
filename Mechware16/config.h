@@ -84,7 +84,7 @@ const unsigned long KEYBOARD_SCAN_INTERVAL_MS = 15;
  *
  * Mainly meant for use with SBCs running emulators.
  */
-// #define ENABLE_USB
+#define ENABLE_USB
 
 /*! \brief Retry failed key presses/releases
  *
