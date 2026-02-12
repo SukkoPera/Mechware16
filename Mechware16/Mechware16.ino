@@ -55,7 +55,7 @@ Animation *animations[N_ANIMATIONS] = {
 };
 
 #include "OCPin.h"
-OpenCollectorPin<PIN_RESET> reset;
+OpenCollectorPin<PIN_RESET> resetOutput;
 constexpr unsigned long RESET_LENGTH_MS = 200;
 
 #include "ClockGenerator.h"
@@ -65,12 +65,7 @@ ClockGenerator clockGenerator;
 #include "logo.h"
 #include "C16Key.h"
 
-enum class Mode: byte {
-	ALWAYS_OFF,
-	ALWAYS_ON,
-	PRESSED_ON,
-	PRESSED_OFF
-};
+#include "userconfig.h"
 
 //! \name Configuration values saved in EEPROM
 //! @{
@@ -110,61 +105,6 @@ KeyMap keyMap;
  * OK).
  */
 Key matrix[MATRIX_ROWS][MATRIX_COLS];
-
-struct Color {
-	byte r;
-	byte g;
-	byte b;
-};
-
-struct MachineSettings {
-	Clock clock0;	// System Clock
-	Clock clock1;	// ACIA Clock
-	Clock clock2;	// Unused
-	byte romSlot;
-	Color color;
-};
-
-MachineSettings machinePal {
-	Clock::SYS_PAL,
-	Clock::ACIA_NORMAL,
-	Clock::DISABLED,
-	0,
-	{255, 0, 0}
-};
-
-MachineSettings machinePalJiffyDos {
-	Clock::SYS_PAL,
-	Clock::ACIA_NORMAL,
-	Clock::DISABLED,
-	1,
-	{127, 255, 0}
-};
-
-MachineSettings machinePalFastAcia {
-	Clock::SYS_PAL,
-	Clock::ACIA_DOUBLE,
-	Clock::DISABLED,
-	0,
-	{35, 255, 0}
-};
-
-MachineSettings machineNtsc {
-	Clock::SYS_NTSC,
-	Clock::ACIA_NORMAL,
-	Clock::DISABLED,
-	1,
-	{0, 0, 255}
-};
-
-constexpr byte MACHINE_SETTINGS_NO = 4;
-
-MachineSettings machineSettings[MACHINE_SETTINGS_NO] = {
-	machinePal,
-	machinePalJiffyDos,
-	machinePalFastAcia,
-	machineNtsc
-};
 
 // Called when a keypress is detected
 void onKeyPressed (const C16Key k) {
@@ -218,7 +158,8 @@ void updateLighting () {
 			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				for (byte col = 0; col < MATRIX_COLS; ++col) {
 					const C16Key k = keyMap.getKey (row, col);
-					ledController.setLedForKey (k, matrix[row][col] != 0 ? false : true);
+					ledController.setLedForKey (k,isPressed (k) ? false : true);
+					// ledController.setLedForKey (k, matrix[row][col] != 0 ? false : true);
 				}
 			}
 			break;
@@ -230,14 +171,15 @@ void updateLighting () {
 			for (byte row = 0; row < MATRIX_ROWS; ++row) {
 				for (byte col = 0; col < MATRIX_COLS; ++col) {
 					const C16Key k = keyMap.getKey (row, col);
-					ledController.setLedForKey (k, matrix[row][col] != 0 ? true : false);
+					ledController.setLedForKey (k, isPressed (k) ? true : false);
+					// ledController.setLedForKey (k, matrix[row][col] != 0 ? true : false);
 				}
 			}
 			break;
 	}
 }
 
-void onSetMode (const Mode newMode) {
+void setLightingMode (const Mode newMode) {
 	if (newMode != mode) {
 		Log.info (F("Setting mode %d\n"), static_cast<int> (newMode));
 
@@ -247,7 +189,7 @@ void onSetMode (const Mode newMode) {
 	}
 }
 
-void onSetAnimation (const int newAnimation) {
+void setAnimation (const int newAnimation) {
 	if (newAnimation != animationId) {
 		Log.info (F("Setting animation %d\n"), newAnimation);
 
@@ -256,7 +198,7 @@ void onSetAnimation (const int newAnimation) {
 	}
 }
 
-void onSetBrightness (const int8_t diff) {
+void setBrightness (const int8_t diff) {
 	int newBrightness = brightness + diff;
 	if (newBrightness >= MIN_BRIGHTNESS && newBrightness <= MAX_BRIGHTNESS) {
 		brightness = static_cast<byte> (newBrightness);
@@ -266,30 +208,42 @@ void onSetBrightness (const int8_t diff) {
 	}
 }
 
-void onReset () {
+void reset () {
 	Log.info (F("Resetting\n"));
 
-	reset.low ();
+	resetOutput.low ();
 	delay (RESET_LENGTH_MS);
-	reset.high ();
+	resetOutput.high ();
 }
 
-void onSetMachineConfiguration (const byte newConfiguration) {
+void setMachineConfiguration (const byte newConfiguration) {
 	if (newConfiguration != configuration && newConfiguration < MACHINE_SETTINGS_NO) {
 		Log.info (F("Setting configuration %d\n"), static_cast<int> (newConfiguration));
-		const MachineSettings& settings = machineSettings[newConfiguration];
+		const MachineSettings& oldSettings = machineSettings[configuration];
+		const MachineSettings& newSettings = machineSettings[newConfiguration];
+		unsigned long start = millis ();
 
-		clockGenerator.setClock (0, settings.clock0);
-		clockGenerator.setClock (1, settings.clock1);
-		clockGenerator.setClock (2, settings.clock2);
+		if (newSettings.forceReset || newSettings.romSlot != oldSettings.romSlot) {
+			Log.info (F("Reset start\n"));
+			resetOutput.low ();
+		}
 
-		fastDigitalWrite (PIN_ROMSWITCH, settings.romSlot == 0 ? LOW : HIGH);
+		clockGenerator.setClock (0, newSettings.clock0);
+		clockGenerator.setClock (1, newSettings.clock1);
+		clockGenerator.setClock (2, newSettings.clock2);
 
-		SoftPWMSet (PIN_LED_R, settings.color.r);
-		SoftPWMSet (PIN_LED_G, settings.color.g);
-		SoftPWMSet (PIN_LED_B, settings.color.b);
+		fastDigitalWrite (PIN_ROMSWITCH, newSettings.romSlot == 0 ? LOW : HIGH);
 
-		onReset ();
+		SoftPWMSet (PIN_LED_R, newSettings.color.r);
+		SoftPWMSet (PIN_LED_G, newSettings.color.g);
+		SoftPWMSet (PIN_LED_B, newSettings.color.b);
+
+		if (newSettings.forceReset || newSettings.romSlot != oldSettings.romSlot) {
+			while (millis () - start < RESET_LENGTH_MS)
+				;
+			Log.info (F("Reset end\n"));
+			resetOutput.high ();
+		}
 
 		configuration = newConfiguration;
 		EEPROM.write (EEP_CONFIGURATION, configuration);
@@ -411,7 +365,7 @@ void setup () {
 		configuration = 0;
 	}
 	clockGenerator.begin ();
-	onSetMachineConfiguration (configuration);
+	setMachineConfiguration (configuration);
 
 	/* Wake up and configure the led controller ASAP, since it might show a random pattern at startup, and build the
 	 * required coordinates array
@@ -505,47 +459,14 @@ void loop () {
 	// Check combos
 	if (isPressed (C16Key::CMD) && isPressed (C16Key::CTRL)) {
 		if (lastCombo == C16Key::NONE || !isPressed (lastCombo)) {		// Poor way to avoid key repetitions
-			if (isPressed (C16Key::F1)) {
-				onSetMode (Mode::ALWAYS_OFF);
-				lastCombo = C16Key::F1;
-			} else if (isPressed (C16Key::F2)) {
-				onSetMode (Mode::ALWAYS_ON);
-				lastCombo = C16Key::F2;
-			} else if (isPressed (C16Key::F3)) {
-				onSetMode (Mode::PRESSED_ON);
-				lastCombo = C16Key::F3;
-			} else if (isPressed (C16Key::HELP)) {
-				onSetMode (Mode::PRESSED_OFF);
-				lastCombo = C16Key::HELP;
-			} else if (isPressed (C16Key::_1)) {
-				onSetAnimation (0);
-				lastCombo = C16Key::_1;
-			} else if (isPressed (C16Key::_2)) {
-				onSetAnimation (1);
-				lastCombo = C16Key::_2;
-			} else if (isPressed (C16Key::PLUS)) {
-				onSetBrightness (+1);
-				lastCombo = C16Key::PLUS;
-			} else if (isPressed (C16Key::MINUS)) {
-				onSetBrightness (-1);
-				lastCombo = C16Key::MINUS;
-			} else if (isPressed (C16Key::Q)) {
-				onSetMachineConfiguration (0);
-				lastCombo = C16Key::Q;
-			} else if (isPressed (C16Key::W)) {
-				onSetMachineConfiguration (1);
-				lastCombo = C16Key::W;
-			} else if (isPressed (C16Key::E)) {
-				onSetMachineConfiguration (2);
-				lastCombo = C16Key::E;
-			} else if (isPressed (C16Key::R)) {
-				onSetMachineConfiguration (3);
-				lastCombo = C16Key::R;
-			} else if (isPressed (C16Key::DEL)) {
-				onReset ();
-				lastCombo = C16Key::DEL;		// FIXME: HOLD UNTIL PRESSED?
-			} else {
-				lastCombo = C16Key::NONE;
+			lastCombo = C16Key::NONE;
+			for (byte i = 0; i < N_HOTKEYS; ++i) {
+				const HotKey& hk = actions[i];
+				if (isPressed (hk.key)) {
+					lastCombo = hk.key;
+					hk.action ();
+					break;
+				}
 			}
 		}
 	}

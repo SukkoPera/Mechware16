@@ -40,21 +40,21 @@ boolean KeyMap::begin () {
     return buildKeyCoordinates ();
 }
 
-C16Key KeyMap::getKey(byte row, byte col) const {
+C16Key KeyMap::getKey (byte row, byte col) const {
     const byte k = pgm_read_byte (&KEYMAP[row][col]);
     return static_cast<C16Key> (k);
 }
 
-const char* KeyMap::getKeyName(C16Key key) const {
+const char* KeyMap::getKeyName (C16Key key) const {
     MatrixCoordinates coordinates = getCoordinates (key);
     return KEY_NAMES[coordinates.row][coordinates.col];
 }
 
-MatrixCoordinates KeyMap::getCoordinates(C16Key key) const {
+MatrixCoordinates KeyMap::getCoordinates (C16Key key) const {
     return keyCoordinates[static_cast<byte> (key)];
 }
 
-boolean KeyMap::buildKeyCoordinates() {
+boolean KeyMap::buildKeyCoordinates () {
     bool found;
 
     for (byte i = 0; i < N_PHYSICAL_KEYS; ++i) {

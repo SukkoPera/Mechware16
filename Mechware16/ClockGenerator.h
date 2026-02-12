@@ -17,18 +17,7 @@
 #pragma once
 
 #include "si5351.h"
-
-enum class Clock: byte {
-	DISABLED = 0,
-	SYS_PAL,
-	SYS_NTSC,
-	ACIA_NORMAL,			// Normal ACIA clock resulting in max 19200 bps
-	ACIA_DOUBLE,			// Double ACIA clock, 38400 bps theoretically possible
-	ACIA_QUAD,				// 76800 bps ;)
-	ACIA_MIDIHACK,			/* This allows reaching the 31250 bps required for midi configuring the acia for 19200 bps
-	                         * (divisor = 96 => 3000000/96 = 31250)
-	                         */
-};
+#include "types.h"
 
 class ClockGenerator {
 public:
@@ -39,6 +28,7 @@ public:
 private:
 	static constexpr uint32_t QUARTZ_FREQUENCY = 25000000UL;
 
+	// Keep these in the same order as enum Clock from types.h
 	static constexpr uint64_t CLOCK_FREQUENCIES[] = {
 		0,				// Disabled
 		17734475ULL,	// System clock, PAL
