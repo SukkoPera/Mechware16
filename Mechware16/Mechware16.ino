@@ -47,12 +47,12 @@ AnimationChasing animationChasing;
 #include "AnimationScrollingColumn.h"
 AnimationScrollingColumn animationScrollingColumn;
 
-constexpr byte N_ANIMATIONS = 2;
-
-Animation *animations[N_ANIMATIONS] = {
+Animation *animations[] = {
 	&animationChasing,
 	&animationScrollingColumn
 };
+
+constexpr byte N_ANIMATIONS = sizeof (animations) / sizeof(animations[0]);
 
 #include "OCPin.h"
 OpenCollectorPin<PIN_RESET> resetOutput;
@@ -66,6 +66,8 @@ ClockGenerator clockGenerator;
 #include "C16Key.h"
 
 #include "userconfig.h"
+constexpr byte MACHINE_SETTINGS_NO = sizeof (machineSettings) / sizeof(machineSettings[0]);
+constexpr byte HOTKEYS_NO = sizeof (hotKeys) / sizeof(hotKeys[0]);
 
 //! \name Configuration values saved in EEPROM
 //! @{
@@ -458,8 +460,7 @@ void loop () {
 	if (isPressed (C16Key::CMD) && isPressed (C16Key::CTRL)) {
 		if (lastCombo == C16Key::NONE || !isPressed (lastCombo)) {		// Poor way to avoid key repetitions
 			lastCombo = C16Key::NONE;
-			for (byte i = 0; i < N_HOTKEYS; ++i) {
-				const HotKey& hk = actions[i];
+			for (const HotKey& hk: hotKeys) {
 				if (isPressed (hk.key)) {
 					lastCombo = hk.key;
 					hk.action ();

@@ -29,35 +29,43 @@ const MachineSettings machinePalJiffyDos PROGMEM {
     Clock::ACIA_NORMAL,
     Clock::DISABLED,
     1,
-    {127, 255, 0},
+    {0, 255, 0},
     false
 };
 
-const MachineSettings machinePalFastAcia PROGMEM {
+const MachineSettings machinePalJiffyDosFastAcia PROGMEM {
     Clock::SYS_PAL,
     Clock::ACIA_DOUBLE,
     Clock::DISABLED,
-    0,
-    {35, 255, 0},
+    1,
+    {0, 255, 127},
     false
 };
 
-const MachineSettings machineNtsc PROGMEM {
-    Clock::SYS_NTSC,
-    Clock::ACIA_NORMAL,
+const MachineSettings machinePalJiffyDosMidiHack PROGMEM {
+    Clock::SYS_PAL,
+    Clock::ACIA_MIDIHACK,
     Clock::DISABLED,
     1,
-    {0, 0, 255},
+    {127, 255, 127},
     false
 };
 
-constexpr byte MACHINE_SETTINGS_NO = 4;
+// const MachineSettings machineNtsc PROGMEM {
+//     Clock::SYS_NTSC,
+//     Clock::ACIA_NORMAL,
+//     Clock::DISABLED,
+//     1,
+//     {0, 0, 255},
+//     false
+// };
 
-const MachineSettings* const machineSettings[MACHINE_SETTINGS_NO] PROGMEM {
+const MachineSettings* const machineSettings[] PROGMEM {
     &machinePal,
     &machinePalJiffyDos,
-    &machinePalFastAcia,
-    &machineNtsc
+    &machinePalJiffyDosFastAcia,
+    &machinePalJiffyDosMidiHack,
+    // &machineNtsc
 };
 
 // Available actions
@@ -67,24 +75,22 @@ void setBrightness (const int8_t diff);
 void reset ();
 void setMachineConfiguration (const byte newConfiguration);
 
-constexpr byte N_HOTKEYS = 13;
-
-const HotKey actions[N_HOTKEYS] = {
+const HotKey hotKeys[] = {
     {C16Key::DEL, []{reset ();}},
 
-    {C16Key::_1, []{setAnimation (0);}},
-    {C16Key::_2, []{setAnimation (1);}},
+    {C16Key::COMMA, []{setAnimation (0);}},
+    {C16Key::PERIOD, []{setAnimation (1);}},
 
-    {C16Key::F1,[]{setLightingMode (LightingMode::ALWAYS_ON);}},
-    {C16Key::F2,[]{setLightingMode (LightingMode::ALWAYS_OFF);}},
-    {C16Key::F3,[]{setLightingMode (LightingMode::PRESSED_OFF);}},
-    {C16Key::HELP,[]{setLightingMode (LightingMode::PRESSED_ON);}},
+    {C16Key::_1,[]{setLightingMode (LightingMode::ALWAYS_ON);}},
+    {C16Key::_2,[]{setLightingMode (LightingMode::ALWAYS_OFF);}},
+    {C16Key::_3,[]{setLightingMode (LightingMode::PRESSED_OFF);}},
+    {C16Key::_4,[]{setLightingMode (LightingMode::PRESSED_ON);}},
 
     {C16Key::PLUS, [] {setBrightness(+1);}},
     {C16Key::MINUS, [] {setBrightness(-1);}},
 
-    {C16Key::Q, [] {setMachineConfiguration (0);}},
-    {C16Key::W, [] {setMachineConfiguration (1);}},
-    {C16Key::E, [] {setMachineConfiguration (2);}},
-    {C16Key::R, [] {setMachineConfiguration (3);}},
+    {C16Key::F1, [] {setMachineConfiguration (0);}},
+    {C16Key::F2, [] {setMachineConfiguration (1);}},
+    {C16Key::F3, [] {setMachineConfiguration (2);}},
+    {C16Key::HELP, [] {setMachineConfiguration (3);}},
 };
